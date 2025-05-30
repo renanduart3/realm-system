@@ -32,6 +32,7 @@ export default function Income() {
         is_recurring: false,
         recurrence_period: 'monthly'
     });
+    const [isLoading, setIsLoading] = useState(false);
 
     useEffect(() => {
         if (organizationType !== 'nonprofit') {
@@ -48,28 +49,35 @@ export default function Income() {
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
+
+        setIsLoading(true);
+
         try {
+            // Optimistic update
             if (editingIncome) {
-                await incomeService.updateIncome(
-                    editingIncome.id,
-                    {
-                        ...editingIncome,
-                        ...formData,
-                        amount: parseFloat(formData.amount)
-                    }
-                );
+                toast?.show('Atualizando receita...', 'info');
+                const updated = await incomeService.updateIncome(editingIncome.id, formData);
+                if (updated) {
+                    setIncomes(prev => prev.map(income =>
+                        income.id === editingIncome.id ? updated : income
+                    ));
+                    toast?.show('Receita atualizada com sucesso!', 'success');
+                }
             } else {
-                await incomeService.createIncome({
-                    ...formData,
-                    amount: parseFloat(formData.amount)
-                }, organizationType);
+                toast?.show('Criando receita...', 'info');
+                const newIncome = await incomeService.createIncome(formData, organizationType as 'nonprofit');
+                setIncomes(prev => [newIncome, ...prev]);
+                toast?.show('Receita criada com sucesso!', 'success');
             }
+
             setIsModalOpen(false);
+            setEditingIncome(null);
             resetForm();
-            loadIncomes();
         } catch (error) {
-            console.error('Erro ao salvar entrada:', error);
-            alert('Erro ao salvar entrada');
+            console.error('Error saving income:', error);
+            toast?.show('Erro ao salvar receita. Tente novamente.', 'error');
+        } finally {
+            setIsLoading(false);
         }
     };
 

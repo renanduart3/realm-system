@@ -22,6 +22,7 @@ export default function Expenses() {
   const [recentExpenses, setRecentExpenses] = useState<Transaction[]>([]);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const { showToast } = useToast();
+  const [isLoading, setIsLoading] = useState(false);
 
   const { user } = useAuth();
   const userEmail = user?.email;

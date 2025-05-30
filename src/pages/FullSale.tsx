@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { Plus, Trash, Package, User, ShoppingCart } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
@@ -26,6 +25,7 @@ const FullSale = () => {
   const [customer, setCustomer] = useState('');
   const [total, setTotal] = useState(0);
   const { user, organizationType } = useAuth();
+  const [isLoading, setIsLoading] = useState(false);
 
   useEffect(() => {
     const loadClients = async () => {
@@ -46,7 +46,7 @@ const FullSale = () => {
   }, [items, products]);
 
   const handleAddItem = () => setItems([...items, { product: '', quantity: 1 }]);
-  
+
   const handleRemoveItem = (index: number) => {
     setItems(items.filter((_, i) => i !== index));
   };
@@ -73,10 +73,11 @@ const FullSale = () => {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    setIsLoading(true);
     try {
       const currentDate = new Date().toISOString().split('T')[0];
       const currentTime = new Date().toISOString().split('T')[1].split('.')[0];
-      
+
       await saleService.createSale(
         currentDate,
         currentTime,
@@ -86,12 +87,14 @@ const FullSale = () => {
         undefined,
         organizationType
       );
-      
+
       toast.success('Venda realizada com sucesso!');
       navigate('/sales');
     } catch (error) {
       console.error('Erro ao processar a venda:', error);
       toast.error('Erro ao processar a venda. Por favor, tente novamente.');
+    } finally {
+      setIsLoading(false);
     }
   };
 
@@ -103,7 +106,7 @@ const FullSale = () => {
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 dark:from-gray-900 dark:to-gray-800 p-4">
       <Breadcrumb />
-      
+
       <div className="max-w-4xl mx-auto">
         <div className="bg-white dark:bg-gray-800 rounded-3xl shadow-2xl overflow-hidden">
           {/* Header */}
@@ -222,9 +225,10 @@ const FullSale = () => {
             {/* Submit Button */}
             <button
               type="submit"
-              className="w-full bg-gradient-to-r from-green-600 to-emerald-600 hover:from-green-700 hover:to-emerald-700 text-white py-4 rounded-xl shadow-lg hover:shadow-xl transition-all duration-200 text-lg font-semibold"
+              disabled={isLoading}
+              className="w-full bg-gradient-to-r from-green-600 to-emerald-600 hover:from-green-700 hover:to-emerald-700 disabled:bg-gray-400 disabled:cursor-not-allowed text-white py-4 rounded-xl shadow-lg hover:shadow-xl transition-all duration-200 text-lg font-semibold"
             >
-              Finalizar Venda
+              {isLoading ? 'Finalizando...' : 'Finalizar Venda'}
             </button>
           </form>
         </div>

@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { useProducts } from '../hooks/useProducts';
 import saleService from '../services/saleService';
@@ -24,6 +23,7 @@ const QuickSale: React.FC<QuickSaleProps> = ({ onClose, onSaleComplete }) => {
     const { products } = useProducts();
     const { organizationType } = useAuth();
     const [clients, setClients] = useState<Client[]>([]);
+    const [isLoading, setIsLoading] = useState(false);
 
     useEffect(() => {
         const loadClients = async () => {
@@ -49,11 +49,19 @@ const QuickSale: React.FC<QuickSaleProps> = ({ onClose, onSaleComplete }) => {
 
     const handleQuickSaleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
+
+        if (!selectedProduct) {
+            toast.error('Produto não encontrado');
+            return;
+        }
+
+        setIsLoading(true);
+
         try {
             const currentDate = new Date().toISOString().split('T')[0];
             const currentTime = new Date().toISOString().split('T')[1].split('.')[0];
             const product = products.find(p => p.id === selectedProduct);
-            
+
             if (!product) {
                 toast.error('Produto não encontrado');
                 return;
@@ -74,13 +82,15 @@ const QuickSale: React.FC<QuickSaleProps> = ({ onClose, onSaleComplete }) => {
 
             toast.success('Venda rápida realizada com sucesso!');
             handleClose();
-            
+
             if (onSaleComplete) {
                 onSaleComplete();
             }
         } catch (error) {
             console.error('Erro ao processar venda rápida:', error);
             toast.error('Erro ao processar venda rápida. Por favor, tente novamente.');
+        } finally {
+            setIsLoading(false);
         }
     };
 
@@ -101,7 +111,7 @@ const QuickSale: React.FC<QuickSaleProps> = ({ onClose, onSaleComplete }) => {
                             >
                                 <X size={20} />
                             </button>
-                            
+
                             <div className="flex items-center space-x-3">
                                 <div className="p-2 bg-white/10 rounded-lg">
                                     <Zap className="h-6 w-6 text-white" />
@@ -175,10 +185,11 @@ const QuickSale: React.FC<QuickSaleProps> = ({ onClose, onSaleComplete }) => {
                             {/* Submit Button */}
                             <button 
                                 type="submit" 
+                                disabled={isLoading}
                                 className="w-full bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-700 hover:to-pink-700 text-white py-3 rounded-xl shadow-lg hover:shadow-xl transition-all duration-200 font-semibold flex items-center justify-center space-x-2"
                             >
                                 <Zap className="h-5 w-5" />
-                                <span>Finalizar Venda Rápida</span>
+                                <span>{isLoading ? 'Finalizando...' : 'Finalizar Venda Rápida'}</span>
                             </button>
                         </form>
                     </div>
