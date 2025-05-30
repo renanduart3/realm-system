@@ -44,7 +44,11 @@ export default function SubscriptionPaymentModal({
       });
 
       // Redirect to Stripe Checkout
-      window.location.href = session.url;
+      if (session?.url) {
+        window.location.href = session.url;
+      } else {
+        throw new Error('No checkout URL received');
+      }
     } catch (error) {
       console.error('Erro no pagamento:', error);
       setError(error instanceof Error ? error.message : 'Erro ao iniciar pagamento. Tente novamente.');

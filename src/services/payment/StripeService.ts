@@ -139,7 +139,7 @@ class StripeService {
         throw new Error('No session URL returned from backend');
       }
       
-      return data.url; // Return the URL for redirection
+      return { url: data.url }; // Return object with URL property for consistency
     } catch (error) {
       console.error('Erro ao criar assinatura:', {
         error,
