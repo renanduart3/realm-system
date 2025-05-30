@@ -76,6 +76,26 @@ const Settings = () => {
     }
   };
 
+  const fetchPlansFromStripe = async () => {
+    try {
+      const response = await fetch('https://ndjiinwbcsccutkfkprb.supabase.co/functions/v1/realm-stripe-function', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          action: 'get-plans'
+        }),
+      });
+      const data = await response.json();
+      console.log('Plans from Stripe:', data);
+      return data;
+    } catch (error) {
+      console.error('Error fetching plans from Stripe:', error);
+      return null;
+    }
+  };
+
   const handleSave = async () => {
     setIsSavingConfig(true);
     try {
@@ -182,19 +202,17 @@ const Settings = () => {
     }
     if (plan === 'free' && !isPremium && subscriptionStatus === 'active') {
       showToast('Você já está no plano Gratuito.', 'info');
-      // Here, you might want to implement a downgrade to free if they were premium and canceled,
-      // but that typically involves backend logic to ensure the Stripe sub is truly ended etc.
-      // For now, if they are 'active' and 'free', it's just an info message.
       return;
     }
-    // If user has a non-active status (e.g. 'past_due', 'canceled') and clicks 'free', it's complex.
-    // For now, let's assume 'free' button is mostly for downgrading or confirming current free status.
-    // Clicking 'premium' should always try to create a premium subscription.
 
-    if (!user?.email) {
-      showToast('Por favor, faça login para gerenciar sua assinatura.', 'error');
-      navigate('/login');
-      return;
+    // For premium subscriptions, we need a valid email
+    if (plan === 'premium') {
+      // If not authenticated, redirect to login
+      if (!isAuthenticated || !user?.email) {
+        showToast('Por favor, faça login para assinar o plano Premium.', 'error');
+        navigate('/login');
+        return;
+      }
     }
 
     if (plan === 'premium') {
@@ -606,7 +624,19 @@ const Settings = () => {
           </div>
         )}
 
-        {(!isCurrentlyPremium) && (
+        {/* Debug info - remove this later */}
+        <div className="mb-4 p-3 bg-gray-100 dark:bg-gray-700 rounded text-xs">
+          <div>Debug info:</div>
+          <div>isAuthenticated: {String(isAuthenticated)}</div>
+          <div>isPremium: {String(isPremium)}</div>
+          <div>subscriptionStatus: {subscriptionStatus || 'null'}</div>
+          <div>planName: {planName || 'null'}</div>
+          <div>isCurrentlyPremium: {String(isCurrentlyPremium)}</div>
+          <div>user: {user ? 'exists' : 'null'}</div>
+        </div>
+
+        {/* Show plans if user is not premium OR not authenticated (to allow signup) */}
+        {(!isCurrentlyPremium || !isAuthenticated) && (
           <>
             {/* Billing Toggle */}
             <div className="flex justify-center mb-8">
