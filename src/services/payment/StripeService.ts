@@ -114,12 +114,13 @@ class StripeService {
       }
 
       // TODO: Add userId if available
-      const response = await fetch('/api/stripe/create-checkout-session', {
+      const response = await fetch('https://ndjiinwbcsccutkfkprb.supabase.co/functions/v1/realm-stripe-function', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
+          action: 'create-checkout-session',
           planId: options.planId,
           interval: options.interval,
           email: options.email,
@@ -153,7 +154,16 @@ class StripeService {
     try {
       // const stripe = await this.stripe;
       // const session = await stripe.checkout.sessions.retrieve(sessionId);
-      const response = await fetch(`/api/stripe/verify-session?sessionId=${sessionId}`);
+      const response = await fetch('https://ndjiinwbcsccutkfkprb.supabase.co/functions/v1/realm-stripe-function', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          action: 'verify-session',
+          sessionId: sessionId,
+        }),
+      });
       const data = await response.json();
 
       if (!response.ok || data.error) {
@@ -177,12 +187,13 @@ class StripeService {
       // const stripe = await this.stripe;
       // const subscription = await stripe.subscriptions.cancel(subscriptionId);
       // TODO: Add userId if available
-      const response = await fetch('/api/stripe/cancel-subscription', {
+      const response = await fetch('https://ndjiinwbcsccutkfkprb.supabase.co/functions/v1/realm-stripe-function', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({ 
+        body: JSON.stringify({
+          action: 'cancel-subscription',
           subscriptionId,
           // userId: options.userId // Optional: pass if available
         }),
@@ -210,7 +221,16 @@ class StripeService {
       // const stripe = await this.stripe;
       // const subscription = await stripe.subscriptions.retrieve(subscriptionId);
       // TODO: Add userId if available, might be part of the query or body
-      const response = await fetch(`/api/stripe/get-subscription-status?subscriptionId=${subscriptionId}`);
+      const response = await fetch('https://ndjiinwbcsccutkfkprb.supabase.co/functions/v1/realm-stripe-function', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          action: 'get-subscription-status',
+          subscriptionId,
+        }),
+      });
       const data = await response.json();
 
       if (!response.ok || data.error) {
