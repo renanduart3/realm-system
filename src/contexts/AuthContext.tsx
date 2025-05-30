@@ -215,11 +215,35 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   // signUpWithEmailPassword and signInWithEmailPassword functions removed
 
   const logout = async () => {
-    const { error } = await supabaseService.auth.signOut();
-    if (error) {
-      console.error('Error logging out:', error);
+    try {
+      // Clear local state immediately
+      setUser(null);
+      setSession(null);
+      setIsAuthenticated(false);
+      setSubscriptionStatus(null);
+      setPlanName(null);
+      setIsPremium(false);
+      setPromptPlanSelection(false);
+      
+      // Sign out from Supabase
+      const { error } = await supabaseService.auth.signOut();
+      if (error) {
+        console.error('Error logging out:', error);
+        throw error;
+      }
+      
+      console.log('Successfully logged out');
+    } catch (error) {
+      console.error('Error during logout:', error);
+      // Even if there's an error, we want to clear local state
+      setUser(null);
+      setSession(null);
+      setIsAuthenticated(false);
+      setSubscriptionStatus(null);
+      setPlanName(null);
+      setIsPremium(false);
+      setPromptPlanSelection(false);
     }
-    // State updates (user, isAuthenticated) will be handled by onAuthStateChange
   };
   
   // Keep existing organization type update logic
