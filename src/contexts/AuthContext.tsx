@@ -149,7 +149,41 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
               setSubscriptionStatus(sub.status);
               setPlanName(sub.plan_name);
               const isActivePremium = sub.status === 'active' && sub.plan_name === 'premium';
-              setIsPremium(isActivePremium);
+              
+              // Verify premium status using Supabase function
+              if (isActivePremium) {
+                try {
+                  console.log('Verifying premium subscription with Supabase function...');
+                  const response = await fetch('https://ndjiinwbcsccutkfkprb.supabase.co/functions/v1/check-premium-subscription', {
+                    method: 'POST',
+                    headers: {
+                      'Content-Type': 'application/json',
+                      'Authorization': `Bearer ${session.access_token}`,
+                    },
+                    body: JSON.stringify({
+                      user_id: session.user.id
+                    }),
+                  });
+                  
+                  const verificationResult = await response.json();
+                  console.log('Premium verification result:', verificationResult);
+                  
+                  if (response.ok && verificationResult.isPremium) {
+                    setIsPremium(true);
+                    console.log('Premium subscription verified successfully');
+                  } else {
+                    console.warn('Premium verification failed:', verificationResult);
+                    setIsPremium(false);
+                  }
+                } catch (verifyError) {
+                  console.error('Error verifying premium subscription:', verifyError);
+                  // Fallback to local database check if verification fails
+                  setIsPremium(isActivePremium);
+                }
+              } else {
+                setIsPremium(false);
+              }
+              
               setPromptPlanSelection(sub.status === 'inactive'); // Prompt if inactive
             } else {
               // This 'else' block should ideally not be reached if a new user always gets a default 'free'/'active' sub created above.
