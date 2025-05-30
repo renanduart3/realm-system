@@ -1,14 +1,15 @@
+
 import React, { useState, useEffect } from 'react';
 import { useProducts } from '../hooks/useProducts';
 import saleService from '../services/saleService';
 import { clientService } from '../services/clientService';
 import { Client } from '../model/types';
-import { X } from 'lucide-react';
-import { useAuth } from '../contexts/AuthContext'; // Added
-import { ProductService } from '../model/types'; // Added
+import { X, Zap, DollarSign } from 'lucide-react';
+import { useAuth } from '../contexts/AuthContext';
+import { ProductService } from '../model/types';
 import { ToastContainer, toast } from 'react-toastify';
 import 'react-toastify/dist/ReactToastify.css';
-
+import SearchableSelect from '../components/SearchableSelect';
 
 interface QuickSaleProps {
     onClose: () => void;
@@ -83,47 +84,56 @@ const QuickSale: React.FC<QuickSaleProps> = ({ onClose, onSaleComplete }) => {
         }
     };
 
+    const selectedProductData = products.find(p => p.id === selectedProduct);
+    const totalAmount = selectedProductData ? selectedProductData.price * quantity : 0;
+
     return (
         <div>
             {isOpen && (
-                <div className="modal fixed inset-0 bg-gray-600 bg-opacity-50 flex justify-center items-center">
-                    <div className="modal-content bg-white dark:bg-gray-800 p-6 rounded-lg shadow-lg w-full max-w-xl relative">
-                        {/* Close button positioned absolutely in the top-right corner */}
-                        <button
-                            onClick={handleClose}
-                            className="absolute -top-3 -right-3 p-2 bg-white dark:bg-gray-700 text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200 rounded-full shadow-lg border border-gray-200 dark:border-gray-600 transition-colors"
-                            aria-label="Close modal"
-                        >
-                            <X size={20} />
-                        </button>
+                <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex justify-center items-center z-50 p-4">
+                    <div className="bg-white dark:bg-gray-800 rounded-3xl shadow-2xl w-full max-w-lg relative overflow-hidden">
+                        {/* Header */}
+                        <div className="bg-gradient-to-r from-purple-600 to-pink-600 px-6 py-4 relative">
+                            <button
+                                onClick={handleClose}
+                                className="absolute top-4 right-4 p-2 bg-white/10 hover:bg-white/20 text-white rounded-full transition-all duration-200"
+                                aria-label="Close modal"
+                            >
+                                <X size={20} />
+                            </button>
+                            
+                            <div className="flex items-center space-x-3">
+                                <div className="p-2 bg-white/10 rounded-lg">
+                                    <Zap className="h-6 w-6 text-white" />
+                                </div>
+                                <div>
+                                    <h2 className="text-xl font-bold text-white">Venda Rápida</h2>
+                                    <p className="text-purple-100 text-sm">Processar venda instantaneamente</p>
+                                </div>
+                            </div>
+                        </div>
 
-                        <h2 className="text-xl font-bold mb-6 text-gray-900 dark:text-white">Venda Rápida</h2>
-                        
-                        <form onSubmit={handleQuickSaleSubmit} className="space-y-4">
+                        <form onSubmit={handleQuickSaleSubmit} className="p-6 space-y-6">
+                            {/* Product Selection */}
                             <div>
-                                <label className="block mb-1 text-sm font-medium text-gray-700 dark:text-gray-300">
-                                    Produto/Serviço:
-                                </label>
-                                <select 
-                                    className="w-full p-2 border rounded-lg border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500" 
-                                    value={selectedProduct} 
-                                    onChange={(e) => setSelectedProduct(e.target.value)} 
+                                <SearchableSelect
+                                    options={products}
+                                    value={selectedProduct}
+                                    onChange={setSelectedProduct}
+                                    placeholder="Selecione um produto/serviço"
+                                    label="Produto/Serviço"
                                     required
-                                >
-                                    <option value="">Select a product/service</option>
-                                    {products.map((product) => (
-                                        <option key={product.id} value={product.id}>{product.name}</option>
-                                    ))}
-                                </select>
+                                />
                             </div>
 
+                            {/* Quantity */}
                             <div>
-                                <label className="block mb-1 text-sm font-medium text-gray-700 dark:text-gray-300">
-                                    Quantidade:
+                                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                                    Quantidade
                                 </label>
                                 <input 
                                     type="number" 
-                                    className="w-full p-2 border rounded-lg border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500" 
+                                    className="w-full p-3 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-purple-500 focus:border-purple-500 transition-all duration-200" 
                                     value={quantity} 
                                     onChange={(e) => setQuantity(Number(e.target.value))} 
                                     min="1" 
@@ -131,27 +141,44 @@ const QuickSale: React.FC<QuickSaleProps> = ({ onClose, onSaleComplete }) => {
                                 />
                             </div>
 
+                            {/* Client Selection */}
                             <div>
-                                <label className="block mb-1 text-sm font-medium text-gray-700 dark:text-gray-300">
-                                    Cliente (opcional):
-                                </label>
-                                <select 
-                                    className="w-full p-2 border rounded-lg border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500" 
-                                    value={selectedClient} 
-                                    onChange={(e) => setSelectedClient(e.target.value)}
-                                >
-                                    <option value="">Selecione um cliente</option>
-                                    {clients.map((client) => (
-                                        <option key={client.id} value={client.id}>{client.name}</option>
-                                    ))}
-                                </select>
+                                <SearchableSelect
+                                    options={clients}
+                                    value={selectedClient}
+                                    onChange={setSelectedClient}
+                                    placeholder="Selecione um cliente (opcional)"
+                                    label="Cliente (opcional)"
+                                />
                             </div>
 
+                            {/* Total Preview */}
+                            {selectedProduct && (
+                                <div className="bg-gradient-to-r from-green-50 to-emerald-50 dark:from-green-900/20 dark:to-emerald-900/20 rounded-xl p-4 border border-green-200 dark:border-green-700">
+                                    <div className="flex items-center justify-between">
+                                        <div className="flex items-center space-x-2">
+                                            <DollarSign className="h-5 w-5 text-green-600" />
+                                            <span className="text-sm font-medium text-green-700 dark:text-green-300">Total</span>
+                                        </div>
+                                        <span className="text-xl font-bold text-green-700 dark:text-green-300">
+                                            R$ {totalAmount.toFixed(2)}
+                                        </span>
+                                    </div>
+                                    {selectedProductData && (
+                                        <div className="mt-2 text-sm text-green-600 dark:text-green-400">
+                                            {selectedProductData.name} × {quantity}
+                                        </div>
+                                    )}
+                                </div>
+                            )}
+
+                            {/* Submit Button */}
                             <button 
                                 type="submit" 
-                                className="w-full px-4 py-2 text-sm font-medium text-white bg-blue-600 rounded-lg hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 dark:focus:ring-offset-gray-800"
+                                className="w-full bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-700 hover:to-pink-700 text-white py-3 rounded-xl shadow-lg hover:shadow-xl transition-all duration-200 font-semibold flex items-center justify-center space-x-2"
                             >
-                                Finalizar Venda Rápida
+                                <Zap className="h-5 w-5" />
+                                <span>Finalizar Venda Rápida</span>
                             </button>
                         </form>
                     </div>
