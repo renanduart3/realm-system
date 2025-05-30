@@ -16,6 +16,27 @@ interface NavbarProps {
 const Navbar: React.FC<NavbarProps> = ({ onMenuClick }) => {
   const { theme, toggleTheme } = useTheme();
   const { user, logout } = useAuth();
+
+  // Helper function to get display name from Google user
+  const getDisplayName = () => {
+    if (!user) return 'User';
+    
+    // For Google users, try to get the name from user_metadata
+    if (user.user_metadata?.full_name) {
+      return user.user_metadata.full_name;
+    }
+    if (user.user_metadata?.name) {
+      return user.user_metadata.name;
+    }
+    
+    // Fallback to email or username
+    return user.email || user.username || 'User';
+  };
+
+  // Helper function to get user email
+  const getUserEmail = () => {
+    return user?.email || '';
+  };
   const [notifications, setNotifications] = useState<Transaction[]>([]);
   const [isNotificationsOpen, setIsNotificationsOpen] = useState(false);
   const [isUserMenuOpen, setIsUserMenuOpen] = useState(false);
@@ -154,12 +175,33 @@ const Navbar: React.FC<NavbarProps> = ({ onMenuClick }) => {
               className="flex items-center space-x-2 p-2 rounded-lg text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700"
             >
               <User size={24} />
-              <span className="hidden md:block">{user?.username}</span>
+              <span className="hidden md:block">{getDisplayName()}</span>
             </button>
 
             {/* User dropdown menu */}
             {isUserMenuOpen && (
-              <div className="absolute right-0 mt-2 w-48 bg-white dark:bg-gray-800 rounded-lg shadow-lg border border-gray-200 dark:border-gray-700 overflow-hidden">
+              <div className="absolute right-0 mt-2 w-64 bg-white dark:bg-gray-800 rounded-lg shadow-lg border border-gray-200 dark:border-gray-700 overflow-hidden">
+                {/* User Info Section */}
+                {user && (
+                  <div className="px-4 py-3 border-b border-gray-200 dark:border-gray-700">
+                    <div className="flex items-center space-x-3">
+                      <div className="w-8 h-8 bg-blue-600 rounded-full flex items-center justify-center">
+                        <span className="text-white text-sm font-semibold">
+                          {getDisplayName().charAt(0).toUpperCase()}
+                        </span>
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <p className="text-sm font-medium text-gray-900 dark:text-white truncate">
+                          {getDisplayName()}
+                        </p>
+                        <p className="text-xs text-gray-500 dark:text-gray-400 truncate">
+                          {getUserEmail()}
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+                )}
+                
                 <Link
                   to="/settings"
                   className="flex items-center space-x-2 px-4 py-3 text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700"
