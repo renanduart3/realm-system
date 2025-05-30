@@ -34,7 +34,8 @@ const Settings = () => {
   const [isResetDialogOpen, setIsResetDialogOpen] = useState(false);
   const [isAnnual, setIsAnnual] = useState(false);
   const [earlyUsersCount] = useState(27);
-  
+  const [isResetting, setIsResetting] = useState(false); // New state for reset process
+
   const [config, setConfig] = useState<Partial<OrganizationSetup>>({});
   const [isSavingConfig, setIsSavingConfig] = useState(false); // Renamed for clarity
   const [isCreatingSubscription, setIsCreatingSubscription] = useState(false); // New state for subscription creation
@@ -133,12 +134,28 @@ const Settings = () => {
   };
 
   const handleResetSystem = async () => {
+    setIsResetDialogOpen(false);
+    setIsResetting(true);
+
     try {
+      // Clear all data from IndexedDB
       await db.delete();
-      await db.open();
-      window.location.reload();
+
+      // Clear localStorage
+      localStorage.clear();
+
+      // Show success message
+      showToast('Sistema resetado com sucesso! Redirecionando para configuração...', 'success');
+
+      // Redirect to setup page to reconfigure the system
+      setTimeout(() => {
+        window.location.href = '/setup';
+      }, 2000);
     } catch (error) {
       console.error('Erro ao resetar sistema:', error);
+      showToast('Erro ao resetar sistema', 'error');
+    } finally {
+      setIsResetting(false);
     }
   };
 
@@ -494,7 +511,7 @@ const Settings = () => {
             </div>
           </div>
         )}
-       
+
         {(!isCurrentlyPremium) && (
           <>
             {/* Billing Toggle */}
@@ -682,7 +699,7 @@ const Settings = () => {
             <h2 className="text-lg font-semibold text-gray-900 dark:text-white mb-6">
               Integrações
             </h2>
-            
+
             {isLoadingFeatures ? (
               <div className="flex flex-col items-center justify-center p-12 border-2 border-dashed border-gray-300 dark:border-gray-600 rounded-lg">
                 <Loader2 className="w-8 h-8 animate-spin text-blue-600 mb-3" />
@@ -718,7 +735,7 @@ const Settings = () => {
                         <p className="text-sm text-gray-600 dark:text-gray-400 mb-4">
                           Sincronize automaticamente seus dados financeiros com planilhas do Google Sheets para backup e análise avançada.
                         </p>
-                        
+
                         {/* Enable/Disable Toggle */}
                         <div className="flex items-center gap-3 mb-4">
                           <input
@@ -843,10 +860,20 @@ const Settings = () => {
               </div>
               <button
                 onClick={() => setIsResetDialogOpen(true)}
-                className="inline-flex items-center px-4 py-2 bg-red-600 hover:bg-red-700 text-white rounded-lg font-medium transition-colors duration-200 shadow-sm hover:shadow-md"
+                className={`inline-flex items-center px-4 py-2 ${isResetting ? 'bg-red-400 cursor-not-allowed' : 'bg-red-600 hover:bg-red-700'} text-white rounded-lg font-medium transition-colors duration-200 shadow-sm hover:shadow-md`}
+								disabled={isResetting}
               >
-                <AlertTriangle className="w-4 h-4 mr-2" />
-                Resetar Sistema
+                {isResetting ? (
+									<>
+										<Loader2 className="w-4 h-4 mr-2 animate-spin" />
+										Resetando...
+									</>
+								) : (
+									<>
+										<AlertTriangle className="w-4 h-4 mr-2" />
+										Resetar Sistema
+									</>
+								)}
               </button>
             </div>
           </div>

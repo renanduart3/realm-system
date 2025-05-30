@@ -49,7 +49,8 @@ export const systemConfigService = {
       }
       return config as OrganizationSetup;
     } catch (error) {
-      console.error('Error getting config:', error);
+      console.error('Error getting config (likely database deleted):', error);
+      // Return null if database doesn't exist (after reset)
       return null;
     }
   },

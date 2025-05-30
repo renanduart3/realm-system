@@ -135,15 +135,18 @@ function App() {
 
           // Se não estiver configurado e não estiver na página de setup, redireciona
           if (!configured && window.location.pathname !== "/setup") {
-            console.log("Redirecting to setup...");
+            console.log("System not configured, redirecting to setup...");
             window.location.href = "/setup";
+            return; // Exit early to prevent further initialization
           }
         } catch (configError) {
           console.error("Failed to check system config:", configError);
-          // If config check fails, assume not configured
+          // If config check fails or database doesn't exist (after reset), assume not configured
           setIsConfigured(false);
           if (window.location.pathname !== "/setup") {
+            console.log("Config check failed, redirecting to setup...");
             window.location.href = "/setup";
+            return; // Exit early to prevent further initialization
           }
         }
 
