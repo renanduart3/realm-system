@@ -5,9 +5,10 @@ import { Pencil } from 'lucide-react';
 
 interface ProductListProps {
   isManager: boolean;
+  searchTerm?: string;
 }
 
-const ProductList = ({ isManager }: ProductListProps) => {
+const ProductList = ({ isManager, searchTerm = '' }: ProductListProps) => {
   const [products, setProducts] = useState<ProductService[] | null>(null);
 
   useEffect(() => {
@@ -17,6 +18,14 @@ const ProductList = ({ isManager }: ProductListProps) => {
     };
     loadProducts();
   }, []);
+
+  // Filter products based on search term
+  const filteredProducts = products?.filter(product =>
+    product.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+    product.category.toLowerCase().includes(searchTerm.toLowerCase()) ||
+    product.type.toLowerCase().includes(searchTerm.toLowerCase()) ||
+    (product.description && product.description.toLowerCase().includes(searchTerm.toLowerCase()))
+  ) || [];
 
   if (!products) {
     return (
@@ -30,10 +39,14 @@ const ProductList = ({ isManager }: ProductListProps) => {
     return <p className="text-gray-500 text-center py-4">No products or services registered yet</p>;
   }
 
+  if (filteredProducts.length === 0 && searchTerm) {
+    return <p className="text-gray-500 text-center py-4">No products found matching "{searchTerm}"</p>;
+  }
+
   // Mobile card view for small screens
   const mobileView = (
     <div className="space-y-4 md:hidden">
-      {products.map((product) => (
+      {filteredProducts.map((product) => (
         <div 
           key={product.id}
           className="bg-white dark:bg-gray-800 p-4 rounded-lg shadow border border-gray-200 dark:border-gray-700"
@@ -95,7 +108,7 @@ const ProductList = ({ isManager }: ProductListProps) => {
           </tr>
         </thead>
         <tbody className="bg-white dark:bg-gray-800 divide-y divide-gray-200 dark:divide-gray-700">
-          {products.map((product) => (
+          {filteredProducts.map((product) => (
             <tr key={product.id} className="hover:bg-gray-50 dark:hover:bg-gray-700">
               <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900 dark:text-white">{product.name}</td>
               <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900 dark:text-white">{product.category}</td>

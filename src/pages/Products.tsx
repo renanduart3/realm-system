@@ -1,10 +1,12 @@
 import React, { useState } from 'react';
 import ProductList from '../components/ProductList';
 import { productService } from '../services/productService';
+import { Search } from 'lucide-react';
 
 const Products = () => {
   const [productType, setProductType] = useState<'Product' | 'Service'>('Product');
   const [isManager] = useState(true);
+  const [searchTerm, setSearchTerm] = useState('');
   const [formData, setFormData] = useState({
     name: '',
     price: '',
@@ -188,7 +190,21 @@ const Products = () => {
         <h2 className="text-lg font-semibold mb-4 text-gray-900 dark:text-white">
           Product/Service List
         </h2>
-        <ProductList isManager={isManager} />
+        
+        <div className="mb-4">
+          <div className="relative">
+            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-5 h-5" />
+            <input
+              type="text"
+              placeholder="Buscar produto/serviço..."
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              className="pl-10 pr-4 py-3 w-full rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all duration-200"
+            />
+          </div>
+        </div>
+
+        <ProductList isManager={isManager} searchTerm={searchTerm} />
       </div>
     </div>
   );
