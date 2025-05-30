@@ -1,0 +1,167 @@
+{
+  "systemConfig": {
+    "id": "system-config",
+    "organization_type": "profit",
+    "organization_name": "Empresa Demo",
+    "currency": "BRL",
+    "theme": "light",
+    "require_auth": true,
+    "google_sync_enabled": false,
+    "is_configured": true,
+    "created_at": "2024-03-15T10:00:00Z",
+    "updated_at": "2024-03-15T10:00:00Z"
+  },
+  "products": [
+    {
+      "id": "prod-1",
+      "name": "Notebook Dell",
+      "category": "Eletrônicos",
+      "price": 3499.9,
+      "unit": "un",
+      "quantity": 15,
+      "created_at": "2024-03-15T10:00:00Z",
+      "updated_at": "2024-03-15T10:00:00Z",
+      "type": "Product",
+      "description": "Notebook Dell com 16GB RAM e 512GB SSD"
+    }
+  ],
+  "sales": [
+    {
+      "id": "sale-1",
+      "date": "2024-03-15",
+      "time": "14:30",
+      "value": 3499.9,
+      "client_id": "client-1",
+      "created_at": "2024-03-15T14:30:00Z",
+      "updated_at": "2024-03-15T14:30:00Z"
+    }
+  ],
+  "income": [
+    {
+      "id": "income-1",
+      "date": "2024-03-15",
+      "value": 5000.0,
+      "description": "Venda de produtos",
+      "amount": 5000.0,
+      "category": "Vendas",
+      "type": "income",
+      "is_recurring": false,
+      "status": "completed",
+      "created_at": "2024-03-15T10:00:00Z",
+      "updated_at": "2024-03-15T10:00:00Z"
+    }
+  ],
+  "donors": [
+    {
+      "id": "donor-1",
+      "name": "Doação Anônima",
+      "amount": 1000.0,
+      "date": "2024-03-15",
+      "type": "individual",
+      "created_at": "2024-03-15T10:00:00Z",
+      "updated_at": "2024-03-15T10:00:00Z"
+    }
+  ],
+  "financialCategories": [
+    {
+      "id": "category-1",
+      "name": "Vendas",
+      "type": "income",
+      "created_at": "2024-03-15T10:00:00Z",
+      "updated_at": "2024-03-15T10:00:00Z"
+    }
+  ],
+  "clients": [
+    {
+      "id": "client-1",
+      "name": "João Silva",
+      "email": "joao@email.com",
+      "phone": "11999999999",
+      "document": "123.456.789-00",
+      "created_at": "2024-03-15T10:00:00Z",
+      "updated_at": "2024-03-15T10:00:00Z"
+    }
+  ],
+  "systemUsers": [
+    {
+      "id": "user-1",
+      "username": "admin",
+      "password": "admin123",
+      "role": "master",
+      "nature_type": "profit",
+      "created_at": "2024-03-15T10:00:00Z",
+      "updated_at": "2024-03-15T10:00:00Z"
+    }
+  ],
+  "googleSheets": {
+    "sheets": [
+      {
+        "id": "sheet-2024",
+        "name": "Dados 2024",
+        "tabs": [
+          {
+            "name": "Transações",
+            "data": []
+          }
+        ]
+      }
+    ],
+    "lastSync": "2024-03-20T00:00:00Z"
+  },
+  "demand": {
+    "topProducts": [
+      {
+        "name": "Product A",
+        "predictedDemand": 100,
+        "trend": "up",
+        "confidence": 0.95
+      }
+    ],
+    "seasonalTrends": {
+      "summer": ["Product A", "Product B"],
+      "winter": ["Product C", "Product D"]
+    }
+  },
+  "sentiment": {
+    "overallSentiment": 0.85,
+    "recentTrend": "positive",
+    "topComplaints": ["Late delivery"],
+    "topPraises": ["Great quality"],
+    "recentReviews": ["Loved it!", "Will buy again!"]
+  },
+  "expense": {
+    "topExpenses": [
+      {
+        "category": "Marketing",
+        "amount": 2000,
+        "trend": "up"
+      }
+    ],
+    "savingsOpportunities": []
+  },
+  "salesPerformance": {
+    "topProducts": [
+      {
+        "name": "Product A",
+        "revenue": 5000,
+        "growth": 10,
+        "date": "2024-03-15"
+      }
+    ],
+    "seasonalPerformance": {
+      "spring": { "revenue": 3000, "growth": 5 },
+      "summer": { "revenue": 7000, "growth": 15 }
+    }
+  },
+  "fidelization": {
+    "topCustomers": [
+      {
+        "name": "Customer A",
+        "totalPurchases": 15000,
+        "frequentItems": ["Product A", "Product B"],
+        "suggestedReward": "10% off next purchase"
+      }
+    ],
+    "productPairs": []
+  }
+}
