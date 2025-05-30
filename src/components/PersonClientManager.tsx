@@ -63,7 +63,7 @@ export default function PersonClientManager() {
             formData.phone,
             formData.document,
             formData.address,
-            formData.socialPrograms,
+            [],
             Number(formData.familyIncome)
           );
         } else {
@@ -139,13 +139,6 @@ export default function PersonClientManager() {
     entity.document.includes(searchTerm)
   );
 
-  const socialProgramOptions = [
-    'Bolsa Família',
-    'BPC',
-    'Auxílio Brasil',
-    'Outros'
-  ];
-
   const formatCurrency = (value: number) => {
     return new Intl.NumberFormat('pt-BR', {
       style: 'currency',
@@ -194,14 +187,11 @@ export default function PersonClientManager() {
                 Documento
               </th>
               {isNonProfit && (
-                <>
+                
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
                     Renda Familiar
                   </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
-                    Programas Sociais
-                  </th>
-                </>
+               
               )}
               <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
                 Ações
@@ -218,15 +208,11 @@ export default function PersonClientManager() {
                   {entity.document}
                 </td>
                 {isNonProfit && (
-                  <>
+                  
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-300">
                       {(entity as Person).familyIncome ? formatCurrency(Number((entity as Person).familyIncome)) : '-'}
                     </td>
-
-                    <td className="px-6 py-4 text-sm text-gray-500 dark:text-gray-300">
-                      {(entity as Person).socialPrograms?.join(', ') || '-'}
-                    </td>
-                  </>
+                 
                 )}
                 <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
                   <button
@@ -274,7 +260,6 @@ export default function PersonClientManager() {
                 </label>
                 <input
                   type="email"
-                  required
                   value={formData.email}
                   onChange={(e) => setFormData({ ...formData, email: e.target.value })}
                   className="form-input"
@@ -286,7 +271,6 @@ export default function PersonClientManager() {
                 </label>
                 <input
                   type="tel"
-                  required
                   value={formData.phone}
                   onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
                   className="form-input"
@@ -298,7 +282,6 @@ export default function PersonClientManager() {
                 </label>
                 <input
                   type="text"
-                  required
                   value={formData.document}
                   onChange={(e) => setFormData({ ...formData, document: e.target.value })}
                   className="form-input"
@@ -316,49 +299,32 @@ export default function PersonClientManager() {
                 />
               </div>
               {isNonProfit && (
-                <>
-                  <div>
-                    <label className="form-label">
-                      Renda Familiar
-                    </label>
-                    <input
-                      type="number"
-                      step="0.01"
-                      value={formData.familyIncome}
-                      onChange={(e) => setFormData({ ...formData, familyIncome: e.target.value })}
-                      className="form-input"
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                      Programas Sociais
-                    </label>
-                    <div className="space-y-2">
-                      {socialProgramOptions.map((program) => (
-                        <label key={program} className="flex items-center">
-                          <input
-                            type="checkbox"
-                            checked={formData.socialPrograms.includes(program)}
-                            onChange={() => handleSocialProgramChange(program)}
-                            className="rounded border-gray-300 text-blue-600 shadow-sm focus:border-blue-300 focus:ring focus:ring-blue-200 focus:ring-opacity-50"
-                          />
-                          <span className="ml-2 text-sm text-gray-700 dark:text-gray-300">{program}</span>
-                        </label>
-                      ))}
-                    </div>
-                  </div>
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">
-                      Observações
-                    </label>
-                    <textarea
-                      value={formData.notes}
-                      onChange={(e) => setFormData({ ...formData, notes: e.target.value })}
-                      className="mt-1 block w-full rounded-md border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white"
-                      rows={3}
-                    />
-                  </div>
-                </>
+                <div>
+                  <label className="form-label">
+                    Renda Familiar
+                  </label>
+                  <input
+                    type="number"
+                    step="0.01"
+                    value={formData.familyIncome}
+                    onChange={(e) => setFormData({ ...formData, familyIncome: e.target.value })}
+                    className="form-input"
+                  />
+                </div>
+              )}
+              
+              {isNonProfit && (
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">
+                    Observações (opcional)
+                  </label>
+                  <textarea
+                    value={formData.notes}
+                    onChange={(e) => setFormData({ ...formData, notes: e.target.value })}
+                    className="form-input"
+                    rows={3}
+                  />
+                </div>
               )}
               <div className="flex justify-end space-x-3">
                 <button
