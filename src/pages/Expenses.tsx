@@ -114,7 +114,7 @@ export default function Expenses() {
       .select('*')
       .eq('email', userEmail)
       .single();
-    
+
     return data?.status; // 'active', 'canceled', etc.
   };
 
@@ -122,7 +122,7 @@ export default function Expenses() {
     <div className="p-6">
       <div className="mb-6">
         <h1 className="text-2xl font-bold text-gray-900 dark:text-white">Expenses</h1>
-        
+
         <div className="mt-4 border-b border-gray-200 dark:border-gray-700">
           <nav className="-mb-px flex space-x-8">
             <button
@@ -155,20 +155,20 @@ export default function Expenses() {
             <h2 className="text-lg font-semibold mb-4 text-gray-900 dark:text-white">Add Expense</h2>
             <form onSubmit={handleSubmit} className="space-y-4">
               <div>
-                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">
+                <label className="form-label">
                   Description
                 </label>
                 <input
                   type="text"
                   value={formData.description}
                   onChange={(e) => setFormData({ ...formData, description: e.target.value })}
-                  className="mt-1 block w-full rounded-md border-gray-300 dark:border-gray-600 shadow-sm focus:border-blue-500 focus:ring-blue-500 dark:bg-gray-700 dark:text-white"
+                  className="form-input"
                   required
                 />
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">
+                <label className="form-label">
                   Amount
                 </label>
                 <input
@@ -176,13 +176,13 @@ export default function Expenses() {
                   step="0.01"
                   value={formData.amount}
                   onChange={(e) => setFormData({ ...formData, amount: e.target.value })}
-                  className="mt-1 block w-full rounded-md border-gray-300 dark:border-gray-600 shadow-sm focus:border-blue-500 focus:ring-blue-500 dark:bg-gray-700 dark:text-white"
+                  className="form-input"
                   required
                 />
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                <label className="form-label mb-2">
                   Category
                 </label>
                 <div className="grid grid-cols-3 gap-2">
@@ -205,14 +205,14 @@ export default function Expenses() {
 
               <div className="flex items-center space-x-4">
                 <div className="flex-1">
-                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">
+                  <label className="form-label">
                     Payment Status
                   </label>
                   <div className="mt-2">
                     <label className="inline-flex items-center">
                       <input
                         type="radio"
-                        className="form-radio text-blue-600"
+                        className="form-radio"
                         name="status"
                         value="paid"
                         checked={formData.status === 'paid'}
@@ -223,7 +223,7 @@ export default function Expenses() {
                     <label className="inline-flex items-center ml-6">
                       <input
                         type="radio"
-                        className="form-radio text-blue-600"
+                        className="form-radio"
                         name="status"
                         value="pending"
                         checked={formData.status === 'pending'}
@@ -237,14 +237,14 @@ export default function Expenses() {
 
               {formData.status === 'pending' && (
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">
+                  <label className="form-label">
                     Due Date
                   </label>
                   <input
                     type="date"
                     value={formData.due_date}
                     onChange={(e) => setFormData({ ...formData, due_date: e.target.value })}
-                    className="mt-1 block w-full rounded-md border-gray-300 dark:border-gray-600 shadow-sm focus:border-blue-500 focus:ring-blue-500 dark:bg-gray-700 dark:text-white"
+                    className="form-input"
                     required
                   />
                 </div>

@@ -11,10 +11,10 @@ export default function ComponentsTest() {
       content: (
         <div className="space-y-4">
           <div className="space-x-2">
-            <button className="px-4 py-2 text-sm font-medium text-white bg-blue-600 rounded-lg hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500">
+            <button className="btn-primary">
               Primary Button
             </button>
-            <button className="px-4 py-2 text-sm font-medium text-gray-700 bg-gray-100 rounded-lg hover:bg-gray-200 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-gray-500">
+            <button className="btn-secondary">
               Secondary Button
             </button>
             <button className="px-4 py-2 text-sm font-medium text-red-700 bg-red-100 rounded-lg hover:bg-red-200 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500">
@@ -45,15 +45,15 @@ export default function ComponentsTest() {
             </label>
             <input
               type="text"
-              className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
+              className="form-input"
               placeholder="Enter text..."
             />
           </div>
           <div>
-            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">
+            <label className="form-label">
               Select Input
             </label>
-            <select className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500">
+            <select className="form-select">
               <option>Option 1</option>
               <option>Option 2</option>
               <option>Option 3</option>
@@ -62,9 +62,9 @@ export default function ComponentsTest() {
           <div className="flex items-center">
             <input
               type="checkbox"
-              className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
+              className="form-checkbox"
             />
-            <label className="ml-2 block text-sm text-gray-900 dark:text-gray-300">
+            <label className="ml-3 block text-sm font-medium text-gray-900 dark:text-gray-300">
               Checkbox
             </label>
           </div>

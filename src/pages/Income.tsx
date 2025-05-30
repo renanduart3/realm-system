@@ -140,7 +140,7 @@ export default function Income() {
                         </h2>
                         <form onSubmit={handleSubmit} className="space-y-4">
                             <div>
-                                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">
+                                <label className="form-label">
                                     Descrição
                                 </label>
                                 <input
@@ -153,7 +153,7 @@ export default function Income() {
                             </div>
 
                             <div>
-                                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">
+                                <label className="form-label">
                                     Valor
                                 </label>
                                 <input
@@ -167,7 +167,7 @@ export default function Income() {
                             </div>
 
                             <div>
-                                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">
+                                <label className="form-label">
                                     Data
                                 </label>
                                 <input
@@ -180,13 +180,13 @@ export default function Income() {
                             </div>
 
                             <div>
-                                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">
+                                <label className="form-label">
                                     Tipo
                                 </label>
                                 <select
                                     value={formData.type}
                                     onChange={(e) => setFormData({ ...formData, type: e.target.value as TransactionType })}
-                                    className="mt-1 block w-full rounded-md border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white"
+                                    className="form-select"
                                 >
                                     <option value="donation">Doação</option>
                                     <option value="grant">Subvenção</option>
@@ -209,13 +209,13 @@ export default function Income() {
 
                             {formData.is_recurring && (
                                 <div>
-                                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">
+                                    <label className="form-label">
                                         Período de Recorrência
                                     </label>
                                     <select
                                         value={formData.recurrence_period}
                                         onChange={(e) => setFormData({ ...formData, recurrence_period: e.target.value as 'monthly' | 'quarterly' | 'yearly' })}
-                                        className="mt-1 block w-full rounded-md border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white"
+                                        className="form-select"
                                     >
                                         <option value="monthly">Mensal</option>
                                         <option value="quarterly">Trimestral</option>
@@ -248,4 +248,4 @@ export default function Income() {
             )}
         </div>
     );
-} 
+}

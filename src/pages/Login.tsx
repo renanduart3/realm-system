@@ -30,20 +30,24 @@ export default function Login() {
     };
 
     return (
-        <div className="min-h-screen bg-gray-100 dark:bg-gray-800 flex items-center justify-center p-4">
-            <div className="max-w-md w-full bg-white dark:bg-gray-900 rounded-lg shadow-lg p-8">
-                <div className="flex flex-col items-center justify-center w-full"> {/* Simplified structure */}
-                    <h3 className="mb-6 text-4xl font-extrabold text-dark-grey-900 dark:text-white">Entrar</h3>
-                    <p className="mb-8 text-grey-700 dark:text-gray-300">Use sua conta Google para continuar.</p>
+        <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 dark:from-gray-900 dark:to-gray-800 flex items-center justify-center p-4">
+            <div className="max-w-md w-full bg-white/80 dark:bg-gray-900/80 backdrop-blur-xl rounded-2xl shadow-2xl border border-white/20 dark:border-gray-700/50 p-8">
+                <div className="flex flex-col items-center justify-center w-full">
+                    <div className="w-16 h-16 bg-gradient-to-r from-blue-500 to-indigo-600 rounded-2xl flex items-center justify-center mb-6 shadow-lg">
+                        <svg className="w-8 h-8 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
+                        </svg>
+                    </div>
+                    <h3 className="mb-3 text-3xl font-bold bg-gradient-to-r from-gray-800 to-gray-600 dark:from-white dark:to-gray-300 bg-clip-text text-transparent">Bem-vindo</h3>
+                    <p className="mb-8 text-gray-600 dark:text-gray-400 text-center leading-relaxed">Conecte-se com sua conta Google para acessar sua plataforma</p>
                     <button
                         type="button"
                         onClick={handleGoogleSignIn}
-                        className="flex items-center justify-center w-full py-4 text-sm font-medium transition duration-300 rounded-2xl text-grey-900 bg-grey-300 hover:bg-grey-400 focus:ring-4 focus:ring-grey-300 dark:bg-gray-700 dark:text-white dark:hover:bg-gray-600"
+                        className="flex items-center justify-center w-full py-4 px-6 text-sm font-semibold transition-all duration-300 rounded-xl text-gray-700 bg-white border-2 border-gray-200 hover:border-gray-300 hover:shadow-lg transform hover:-translate-y-0.5 focus:ring-4 focus:ring-blue-500/20 dark:bg-gray-800 dark:text-white dark:border-gray-600 dark:hover:border-gray-500 group"
                     >
-                        <img className="h-6 mr-3" src="https://raw.githubusercontent.com/Loopple/loopple-public-assets/main/motion-tailwind/img/logos/logo-google.png" alt="Google logo" />
-                        <span>Sign in with Google</span>
+                        <img className="h-6 mr-3 transition-transform group-hover:scale-110" src="https://raw.githubusercontent.com/Loopple/loopple-public-assets/main/motion-tailwind/img/logos/logo-google.png" alt="Google logo" />
+                        <span>Continuar com Google</span>
                     </button>
-                    {/* Removed email/password form, "or" separator, forgot password, and create account links */}
                 </div>
             </div>
         </div>

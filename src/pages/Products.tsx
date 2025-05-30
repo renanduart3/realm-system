@@ -69,12 +69,12 @@ const Products = () => {
       <h1 className="text-xl md:text-2xl font-bold text-gray-900 dark:text-white">
         Product/Service Registration
       </h1>
-      
+
       <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-4 md:p-6">
         <h2 className="text-lg font-semibold mb-4 text-gray-900 dark:text-white">
           Add New Product/Service
         </h2>
-        
+
         {error && (
           <div className="mb-4 p-3 bg-red-100 border border-red-400 text-red-700 rounded">
             {error}
@@ -84,7 +84,7 @@ const Products = () => {
         <form onSubmit={handleSubmit} className="space-y-4">
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div>
-              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+              <label className="form-label">
                 Name
               </label>
               <input
@@ -92,17 +92,17 @@ const Products = () => {
                 name="name"
                 value={formData.name}
                 onChange={handleInputChange}
-                className="w-full rounded-lg border-gray-300 dark:border-gray-600 shadow-sm focus:border-blue-500 focus:ring-blue-500 dark:bg-gray-700 dark:text-white"
+                className="form-input"
                 required
               />
             </div>
 
             <div>
-              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+              <label className="form-label">
                 Type
               </label>
               <select 
-                className="w-full rounded-lg border-gray-300 dark:border-gray-600 shadow-sm focus:border-blue-500 focus:ring-blue-500 dark:bg-gray-700 dark:text-white"
+                className="form-select"
                 onChange={(e) => {
                   setProductType(e.target.value as 'Product' | 'Service');
                   handleInputChange(e);
@@ -118,7 +118,7 @@ const Products = () => {
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div>
-              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+              <label className="form-label">
                 Price
               </label>
               <input
@@ -127,14 +127,14 @@ const Products = () => {
                 name="price"
                 value={formData.price}
                 onChange={handleInputChange}
-                className="w-full rounded-lg border-gray-300 dark:border-gray-600 shadow-sm focus:border-blue-500 focus:ring-blue-500 dark:bg-gray-700 dark:text-white"
+                className="form-input"
                 required
               />
             </div>
 
             {productType === 'Product' && (
               <div>
-                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                <label className="form-label">
                   Quantity
                 </label>
                 <input
@@ -142,7 +142,7 @@ const Products = () => {
                   name="quantity"
                   value={formData.quantity}
                   onChange={handleInputChange}
-                  className="w-full rounded-lg border-gray-300 dark:border-gray-600 shadow-sm focus:border-blue-500 focus:ring-blue-500 dark:bg-gray-700 dark:text-white"
+                  className="form-input"
                   required
                 />
               </div>
@@ -150,14 +150,14 @@ const Products = () => {
           </div>
 
           <div>
-            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+            <label className="form-label">
               Description
             </label>
             <textarea
               name="description"
               value={formData.description}
               onChange={handleInputChange}
-              className="w-full rounded-lg border-gray-300 dark:border-gray-600 shadow-sm focus:border-blue-500 focus:ring-blue-500 dark:bg-gray-700 dark:text-white"
+              className="form-textarea"
               rows={3}
             />
           </div>

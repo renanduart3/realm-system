@@ -417,7 +417,7 @@ export default function SetupWizard() {
                 <button
                   type="button"
                   onClick={() => setCurrentStep(prev => prev - 1)}
-                  className="px-4 py-2 border rounded hover:bg-gray-50"
+                  className="btn-secondary"
                 >
                   Anterior
                 </button>
@@ -425,8 +425,8 @@ export default function SetupWizard() {
               
               <button
                 type="submit"
-                className={`px-4 py-2 rounded text-white ${
-                  currentStep === 4 ? 'bg-green-500 hover:bg-green-600' : 'bg-blue-500 hover:bg-blue-600'
+                className={`btn-primary ${
+                  currentStep === 4 ? 'from-green-500 to-green-600 hover:from-green-600 hover:to-green-700' : ''
                 }`}
               >
                 {currentStep === 4 ? 'Finalizar' : 'Próximo'}

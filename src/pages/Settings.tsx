@@ -399,9 +399,9 @@ const Settings = () => {
             id="require_auth"
             checked={config.require_auth || false}
             onChange={(e) => handleChange('require_auth', e.target.checked)}
-            className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
+            className="form-checkbox"
           />
-          <label htmlFor="require_auth" className="ml-2 block text-sm text-gray-700 dark:text-gray-300">
+          <label htmlFor="require_auth" className="ml-3 block text-sm font-medium text-gray-700 dark:text-gray-300">
             Exigir autenticação
           </label>
         </div>
@@ -411,7 +411,7 @@ const Settings = () => {
         <button
           type="submit"
           disabled={isSavingConfig}
-          className={`flex items-center py-2 px-4 border border-transparent rounded-lg shadow-sm text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 ${
+          className={`btn-primary flex items-center ${
             isSavingConfig ? 'opacity-75 cursor-not-allowed' : ''
           }`}
         >

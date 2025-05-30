@@ -257,7 +257,7 @@ export default function PersonClientManager() {
             </h2>
             <form onSubmit={handleSubmit} className="space-y-4">
               <div>
-                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">
+                <label className="form-label">
                   Nome
                 </label>
                 <input
@@ -265,11 +265,11 @@ export default function PersonClientManager() {
                   required
                   value={formData.name}
                   onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-                  className="mt-1 block w-full rounded-md border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white"
+                  className="form-input"
                 />
               </div>
               <div>
-                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">
+                <label className="form-label">
                   Email
                 </label>
                 <input
@@ -277,11 +277,11 @@ export default function PersonClientManager() {
                   required
                   value={formData.email}
                   onChange={(e) => setFormData({ ...formData, email: e.target.value })}
-                  className="mt-1 block w-full rounded-md border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white"
+                  className="form-input"
                 />
               </div>
               <div>
-                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">
+                <label className="form-label">
                   Telefone
                 </label>
                 <input
@@ -289,11 +289,11 @@ export default function PersonClientManager() {
                   required
                   value={formData.phone}
                   onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
-                  className="mt-1 block w-full rounded-md border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white"
+                  className="form-input"
                 />
               </div>
               <div>
-                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">
+                <label className="form-label">
                   Documento
                 </label>
                 <input
@@ -301,24 +301,24 @@ export default function PersonClientManager() {
                   required
                   value={formData.document}
                   onChange={(e) => setFormData({ ...formData, document: e.target.value })}
-                  className="mt-1 block w-full rounded-md border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white"
+                  className="form-input"
                 />
               </div>
               <div>
-                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">
+                <label className="form-label">
                   Endereço
                 </label>
                 <input
                   type="text"
                   value={formData.address}
                   onChange={(e) => setFormData({ ...formData, address: e.target.value })}
-                  className="mt-1 block w-full rounded-md border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white"
+                  className="form-input"
                 />
               </div>
               {isNonProfit && (
                 <>
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">
+                    <label className="form-label">
                       Renda Familiar
                     </label>
                     <input
@@ -326,7 +326,7 @@ export default function PersonClientManager() {
                       step="0.01"
                       value={formData.familyIncome}
                       onChange={(e) => setFormData({ ...formData, familyIncome: e.target.value })}
-                      className="mt-1 block w-full rounded-md border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white"
+                      className="form-input"
                     />
                   </div>
                   <div>
