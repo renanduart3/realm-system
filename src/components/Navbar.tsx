@@ -86,9 +86,16 @@ const Navbar: React.FC<NavbarProps> = ({ onMenuClick }) => {
     }
   };
 
-  const handleLogout = () => {
-    logout();
-    showToast('Logged out successfully', 'success');
+  const handleLogout = async () => {
+    try {
+      await logout();
+      showToast('Logged out successfully', 'success');
+      // Force navigation to login page after logout
+      window.location.href = '/login';
+    } catch (error) {
+      console.error('Error during logout:', error);
+      showToast('Error logging out', 'error');
+    }
   };
 
   return (

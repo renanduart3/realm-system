@@ -174,120 +174,127 @@ function App() {
       <ThemeProvider>
         <ToastProvider>
           <AuthProvider>
-            <Layout>
-              <Routes>
-                <Route
-                  path="/"
-                  element={
-                    !isConfigured ? (
-                      <Navigate to="/setup" replace />
-                    ) : (
-                      <Dashboard />
-                    )
-                  }
-                />
-                <Route
-                  path="/sales"
-                  element={
-                    !isConfigured ? <Navigate to="/setup" replace /> : <Sales />
-                  }
-                />
-                <Route
-                  path="/sales/full"
-                  element={
-                    !isConfigured ? (
-                      <Navigate to="/setup" replace />
-                    ) : (
-                      <FullSale />
-                    )
-                  }
-                />
-                <Route
-                  path="/expenses"
-                  element={
-                    !isConfigured ? (
-                      <Navigate to="/setup" replace />
-                    ) : (
-                      <Expenses />
-                    )
-                  }
-                />
-                <Route
-                  path="/products"
-                  element={
-                    !isConfigured ? (
-                      <Navigate to="/setup" replace />
-                    ) : (
-                      <Products />
-                    )
-                  }
-                />
-                <Route
-                  path="/settings"
-                  element={
-                    !isConfigured ? (
-                      <Navigate to="/setup" replace />
-                    ) : (
-                      <Settings />
-                    )
-                  }
-                />
-                <Route
-                  path="/componentes"
-                  element={
-                    !isConfigured ? (
-                      <Navigate to="/setup" replace />
-                    ) : (
-                      <ComponentsTest />
-                    )
-                  }
-                />
-                <Route
-                  path="/persons"
-                  element={
-                    !isConfigured ? (
-                      <Navigate to="/setup" replace />
-                    ) : (
-                      <PersonClientManager />
-                    )
-                  }
-                />
-                <Route
-                  path="/clients"
-                  element={
-                    !isConfigured ? (
-                      <Navigate to="/setup" replace />
-                    ) : (
-                      <Clients />
-                    )
-                  }
-                />
-                <Route path="/login" element={<Login />} />
-                <Route
-                  path="/income"
-                  element={
-                    !isConfigured ? (
-                      <Navigate to="/setup" replace />
-                    ) : (
-                      <Income />
-                    )
-                  }
-                />
-                <Route path="/setup" element={<SetupWizard />} />
-                <Route
-                  path="/subscription"
-                  element={
-                    !isConfigured ? (
-                      <Navigate to="/setup" replace />
-                    ) : (
-                      <SubscriptionStatus />
-                    )
-                  }
-                />
-                <Route path="/payment/success" element={<PaymentSuccess />} />
-                <Route path="/payment/cancel" element={<PaymentCancel />} />
-              </Routes>
-            </Layout>
+            <Routes>
+              {/* Routes without Layout (no navbar/sidebar) */}
+              <Route path="/login" element={<Login />} />
+              <Route path="/setup" element={<SetupWizard />} />
+              <Route path="/payment/success" element={<PaymentSuccess />} />
+              <Route path="/payment/cancel" element={<PaymentCancel />} />
+              
+              {/* Routes with Layout (with navbar/sidebar) */}
+              <Route path="/*" element={
+                <Layout>
+                  <Routes>
+                    <Route
+                      path="/"
+                      element={
+                        !isConfigured ? (
+                          <Navigate to="/setup" replace />
+                        ) : (
+                          <Dashboard />
+                        )
+                      }
+                    />
+                    <Route
+                      path="/sales"
+                      element={
+                        !isConfigured ? <Navigate to="/setup" replace /> : <Sales />
+                      }
+                    />
+                    <Route
+                      path="/sales/full"
+                      element={
+                        !isConfigured ? (
+                          <Navigate to="/setup" replace />
+                        ) : (
+                          <FullSale />
+                        )
+                      }
+                    />
+                    <Route
+                      path="/expenses"
+                      element={
+                        !isConfigured ? (
+                          <Navigate to="/setup" replace />
+                        ) : (
+                          <Expenses />
+                        )
+                      }
+                    />
+                    <Route
+                      path="/products"
+                      element={
+                        !isConfigured ? (
+                          <Navigate to="/setup" replace />
+                        ) : (
+                          <Products />
+                        )
+                      }
+                    />
+                    <Route
+                      path="/settings"
+                      element={
+                        !isConfigured ? (
+                          <Navigate to="/setup" replace />
+                        ) : (
+                          <Settings />
+                        )
+                      }
+                    />
+                    <Route
+                      path="/componentes"
+                      element={
+                        !isConfigured ? (
+                          <Navigate to="/setup" replace />
+                        ) : (
+                          <ComponentsTest />
+                        )
+                      }
+                    />
+                    <Route
+                      path="/persons"
+                      element={
+                        !isConfigured ? (
+                          <Navigate to="/setup" replace />
+                        ) : (
+                          <PersonClientManager />
+                        )
+                      }
+                    />
+                    <Route
+                      path="/clients"
+                      element={
+                        !isConfigured ? (
+                          <Navigate to="/setup" replace />
+                        ) : (
+                          <Clients />
+                        )
+                      }
+                    />
+                    <Route
+                      path="/income"
+                      element={
+                        !isConfigured ? (
+                          <Navigate to="/setup" replace />
+                        ) : (
+                          <Income />
+                        )
+                      }
+                    />
+                    <Route
+                      path="/subscription"
+                      element={
+                        !isConfigured ? (
+                          <Navigate to="/setup" replace />
+                        ) : (
+                          <SubscriptionStatus />
+                        )
+                      }
+                    />
+                  </Routes>
+                </Layout>
+              } />
+            </Routes>
           </AuthProvider>
         </ToastProvider>
       </ThemeProvider>

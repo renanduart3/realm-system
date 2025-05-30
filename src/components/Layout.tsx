@@ -29,11 +29,11 @@ export default function Layout({ children }: LayoutProps) {
 
   // Effect for redirecting to subscription status page if needed
   useEffect(() => {
-    if (isAuthenticated && promptPlanSelection && location.pathname !== '/subscription-status') {
-      console.log('Redirecting to /subscription-status due to promptPlanSelection.');
+    if (isAuthenticated && promptPlanSelection && location.pathname !== '/subscription' && location.pathname !== '/login') {
+      console.log('Redirecting to /subscription due to promptPlanSelection.');
       // Optionally, show a toast message here:
       // showToast("Please select a subscription plan to continue.", "info");
-      navigate('/subscription-status', { replace: true });
+      navigate('/subscription', { replace: true });
     }
   }, [isAuthenticated, promptPlanSelection, location.pathname, navigate]);
 
