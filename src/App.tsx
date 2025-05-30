@@ -103,23 +103,44 @@ function App() {
   useEffect(() => {
     const initializeApp = async () => {
       try {
+        console.log('Starting app initialization...');
+        
         // Initialize mock data when the app starts
-        await mockDataService.initializeMockData();
+        try {
+          await mockDataService.initializeMockData();
+          console.log('Mock data initialized successfully');
+        } catch (mockError) {
+          console.error('Failed to initialize mock data:', mockError);
+          // Continue initialization even if mock data fails
+        }
         
         // Check if system is configured
-        const config = await systemConfigService.getConfig();
-        const configured = config?.is_configured || false;
-        setIsConfigured(configured);
-        
-        // Se não estiver configurado e não estiver na página de setup, redireciona
-        if (!configured && window.location.pathname !== '/setup') {
-          window.location.href = '/setup';
+        try {
+          const config = await systemConfigService.getConfig();
+          const configured = config?.is_configured || false;
+          setIsConfigured(configured);
+          console.log('System configuration checked:', configured);
+          
+          // Se não estiver configurado e não estiver na página de setup, redireciona
+          if (!configured && window.location.pathname !== '/setup') {
+            console.log('Redirecting to setup...');
+            window.location.href = '/setup';
+          }
+        } catch (configError) {
+          console.error('Failed to check system config:', configError);
+          // If config check fails, assume not configured
+          setIsConfigured(false);
+          if (window.location.pathname !== '/setup') {
+            window.location.href = '/setup';
+          }
         }
         
         // Simulate minimum loading time for better UX
-        await new Promise(resolve => setTimeout(resolve, 1500));
+        await new Promise(resolve => setTimeout(resolve, 1000));
+        console.log('App initialization completed');
       } catch (error) {
-        console.error('Failed to initialize mock data:', error);
+        console.error('Critical error during app initialization:', error);
+        // Even on critical error, we should stop loading
         setIsConfigured(false);
       } finally {
         setIsLoading(false);

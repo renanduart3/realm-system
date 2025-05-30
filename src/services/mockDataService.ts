@@ -16,11 +16,9 @@ import {
 
 export const mockDataService = {
   async initializeMockData() {
-    if (!appConfig.useMockData) {
-      return;
-    }
-
     try {
+      console.log('Starting mock data initialization...');
+
       // Check if data is already initialized
       const existingData = await db.systemConfig.get('system-config');
       if (existingData) {
@@ -204,6 +202,8 @@ export const mockDataService = {
       console.log('Mock data initialized successfully');
     } catch (error) {
       console.error('Error initializing mock data:', error);
+      // Don't throw the error, just log it to prevent app from failing to start
+      console.warn('Mock data initialization failed, but continuing app startup');
     }
   }
 };
