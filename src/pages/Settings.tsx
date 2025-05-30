@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Save, Loader2, CloudCog, CreditCard, Star, Check, X, Brain, Calendar, Cloud, AlertTriangle, Building2, Phone, Globe, Facebook, Instagram, Linkedin, Twitter } from 'lucide-react';
+import { Save, Loader2, CloudCog, CreditCard, Star, Check, X, Brain, Calendar, Cloud, AlertTriangle, Building2, Phone, Globe, Facebook, Instagram, Linkedin, Twitter, Pencil } from 'lucide-react';
 import { systemConfigService } from '../services/systemConfigService';
 import { googleSheetsSyncService } from '../services/googleSheets.service'; // Import instance
 import { OrganizationSetup } from '../model/types';
@@ -35,6 +35,7 @@ const Settings = () => {
   const [isAnnual, setIsAnnual] = useState(false);
   const [earlyUsersCount] = useState(27);
   const [isResetting, setIsResetting] = useState(false); // New state for reset process
+  const [isEditMode, setIsEditMode] = useState(false); // New state for edit mode
 
   const [config, setConfig] = useState<Partial<OrganizationSetup>>({});
   const [isSavingConfig, setIsSavingConfig] = useState(false); // Renamed for clarity
@@ -164,6 +165,15 @@ const Settings = () => {
     await handleSave();
   };
 
+  const handleEditToggle = () => {
+    setIsEditMode(!isEditMode);
+  };
+
+  const handleCancelEdit = () => {
+    setIsEditMode(false);
+    loadConfig(); // Reload original config to discard changes
+  };
+
   const handleSubscribe = async (plan: 'free' | 'premium') => {
     // If user is already premium and tries to subscribe to premium again, or is free and tries to subscribe to free.
     if (plan === 'premium' && isPremium && subscriptionStatus === 'active') {
@@ -219,7 +229,63 @@ const Settings = () => {
 
   const renderOrganizationForm = () => (
     <form onSubmit={handleSubmit} className="space-y-6">
-      {/* Organization Type - Read Only */}
+      {/* Edit Mode Controls */}
+      <div className="flex items-center justify-between mb-6">
+        <div className="flex items-center gap-3">
+          <h2 className="text-lg font-semibold text-gray-900 dark:text-white">
+            Configurações da Organização
+          </h2>
+          {!isEditMode && (
+            <span className="text-sm text-gray-500 dark:text-gray-400">
+              (Somente leitura)
+            </span>
+          )}
+        </div>
+        <div className="flex items-center gap-2">
+          {!isEditMode ? (
+            <button
+              type="button"
+              onClick={handleEditToggle}
+              className="inline-flex items-center px-3 py-2 text-sm font-medium text-blue-600 dark:text-blue-400 hover:text-blue-700 dark:hover:text-blue-300 transition-colors"
+            >
+              <Pencil className="w-4 h-4 mr-1" />
+              Editar
+            </button>
+          ) : (
+            <div className="flex items-center gap-2">
+              <button
+                type="button"
+                onClick={handleCancelEdit}
+                className="inline-flex items-center px-3 py-2 text-sm font-medium text-gray-600 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300 transition-colors"
+              >
+                <X className="w-4 h-4 mr-1" />
+                Cancelar
+              </button>
+              <button
+                type="submit"
+                disabled={isSavingConfig}
+                className={`inline-flex items-center px-3 py-2 text-sm font-medium bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors ${
+                  isSavingConfig ? 'opacity-75 cursor-not-allowed' : ''
+                }`}
+              >
+                {isSavingConfig ? (
+                  <>
+                    <Loader2 className="w-4 h-4 mr-1 animate-spin" />
+                    Salvando...
+                  </>
+                ) : (
+                  <>
+                    <Save className="w-4 h-4 mr-1" />
+                    Salvar
+                  </>
+                )}
+              </button>
+            </div>
+          )}
+        </div>
+      </div>
+
+      {/* Organization Type - Always Read Only */}
       <div className="bg-gray-50 dark:bg-gray-700/30 p-4 rounded-lg border border-gray-200 dark:border-gray-600">
         <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
           Tipo de Organização
@@ -244,8 +310,12 @@ const Settings = () => {
             type="text"
             value={config.name || ''}
             onChange={(e) => handleChange('name', e.target.value)}
-            className="mt-1 block w-full rounded-md border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white"
+            className={`mt-1 block w-full rounded-md border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white ${
+              !isEditMode ? 'bg-gray-50 dark:bg-gray-600 cursor-not-allowed' : ''
+            }`}
             required
+            readOnly={!isEditMode}
+            disabled={!isEditMode}
           />
         </div>
 
@@ -257,7 +327,11 @@ const Settings = () => {
             type="email"
             value={config.email || ''}
             onChange={(e) => handleChange('email', e.target.value)}
-            className="mt-1 block w-full rounded-md border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white"
+            className={`mt-1 block w-full rounded-md border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white ${
+              !isEditMode ? 'bg-gray-50 dark:bg-gray-600 cursor-not-allowed' : ''
+            }`}
+            readOnly={!isEditMode}
+            disabled={!isEditMode}
           />
         </div>
 
@@ -269,7 +343,11 @@ const Settings = () => {
             type="tel"
             value={config.phone || ''}
             onChange={(e) => handleChange('phone', e.target.value)}
-            className="mt-1 block w-full rounded-md border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white"
+            className={`mt-1 block w-full rounded-md border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white ${
+              !isEditMode ? 'bg-gray-50 dark:bg-gray-600 cursor-not-allowed' : ''
+            }`}
+            readOnly={!isEditMode}
+            disabled={!isEditMode}
           />
         </div>
 
@@ -281,7 +359,11 @@ const Settings = () => {
             type="url"
             value={config.website || ''}
             onChange={(e) => handleChange('website', e.target.value)}
-            className="mt-1 block w-full rounded-md border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white"
+            className={`mt-1 block w-full rounded-md border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white ${
+              !isEditMode ? 'bg-gray-50 dark:bg-gray-600 cursor-not-allowed' : ''
+            }`}
+            readOnly={!isEditMode}
+            disabled={!isEditMode}
           />
         </div>
       </div>
@@ -295,7 +377,11 @@ const Settings = () => {
           type="text"
           value={config.address || ''}
           onChange={(e) => handleChange('address', e.target.value)}
-          className="mt-1 block w-full rounded-md border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white"
+          className={`mt-1 block w-full rounded-md border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white ${
+            !isEditMode ? 'bg-gray-50 dark:bg-gray-600 cursor-not-allowed' : ''
+          }`}
+          readOnly={!isEditMode}
+          disabled={!isEditMode}
         />
       </div>
 
@@ -312,8 +398,12 @@ const Settings = () => {
               type="url"
               value={config.social_media?.facebook || ''}
               onChange={(e) => handleChange('social_media', { ...config.social_media, facebook: e.target.value })}
-              className="mt-1 block w-full rounded-md border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white"
+              className={`mt-1 block w-full rounded-md border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white ${
+                !isEditMode ? 'bg-gray-50 dark:bg-gray-600 cursor-not-allowed' : ''
+              }`}
               placeholder="https://facebook.com/sua-empresa"
+              readOnly={!isEditMode}
+              disabled={!isEditMode}
             />
           </div>
 
@@ -326,8 +416,12 @@ const Settings = () => {
               type="url"
               value={config.social_media?.instagram || ''}
               onChange={(e) => handleChange('social_media', { ...config.social_media, instagram: e.target.value })}
-              className="mt-1 block w-full rounded-md border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white"
+              className={`mt-1 block w-full rounded-md border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white ${
+                !isEditMode ? 'bg-gray-50 dark:bg-gray-600 cursor-not-allowed' : ''
+              }`}
               placeholder="https://instagram.com/sua-empresa"
+              readOnly={!isEditMode}
+              disabled={!isEditMode}
             />
           </div>
 
@@ -340,8 +434,12 @@ const Settings = () => {
               type="url"
               value={config.social_media?.linkedin || ''}
               onChange={(e) => handleChange('social_media', { ...config.social_media, linkedin: e.target.value })}
-              className="mt-1 block w-full rounded-md border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white"
+              className={`mt-1 block w-full rounded-md border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white ${
+                !isEditMode ? 'bg-gray-50 dark:bg-gray-600 cursor-not-allowed' : ''
+              }`}
               placeholder="https://linkedin.com/company/sua-empresa"
+              readOnly={!isEditMode}
+              disabled={!isEditMode}
             />
           </div>
 
@@ -354,8 +452,12 @@ const Settings = () => {
               type="url"
               value={config.social_media?.twitter || ''}
               onChange={(e) => handleChange('social_media', { ...config.social_media, twitter: e.target.value })}
-              className="mt-1 block w-full rounded-md border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white"
+              className={`mt-1 block w-full rounded-md border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white ${
+                !isEditMode ? 'bg-gray-50 dark:bg-gray-600 cursor-not-allowed' : ''
+              }`}
               placeholder="https://twitter.com/sua-empresa"
+              readOnly={!isEditMode}
+              disabled={!isEditMode}
             />
           </div>
         </div>
@@ -373,8 +475,12 @@ const Settings = () => {
               type="text"
               value={config.pix_key || ''}
               onChange={(e) => handleChange('pix_key', e.target.value)}
-              className="mt-1 block w-full rounded-md border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white"
+              className={`mt-1 block w-full rounded-md border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white ${
+                !isEditMode ? 'bg-gray-50 dark:bg-gray-600 cursor-not-allowed' : ''
+              }`}
               placeholder="Digite sua chave PIX"
+              readOnly={!isEditMode}
+              disabled={!isEditMode}
             />
           </div>
 
@@ -386,8 +492,12 @@ const Settings = () => {
               type="text"
               value={config.pix_name || ''}
               onChange={(e) => handleChange('pix_name', e.target.value)}
-              className="mt-1 block w-full rounded-md border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white"
+              className={`mt-1 block w-full rounded-md border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white ${
+                !isEditMode ? 'bg-gray-50 dark:bg-gray-600 cursor-not-allowed' : ''
+              }`}
               placeholder="Nome do beneficiário PIX"
+              readOnly={!isEditMode}
+              disabled={!isEditMode}
             />
           </div>
         </div>
@@ -402,7 +512,10 @@ const Settings = () => {
           <select
             value={config.currency || 'BRL'}
             onChange={(e) => handleChange('currency', e.target.value)}
-            className="mt-1 block w-full rounded-md border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white"
+            className={`mt-1 block w-full rounded-md border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white ${
+              !isEditMode ? 'bg-gray-50 dark:bg-gray-600 cursor-not-allowed' : ''
+            }`}
+            disabled={!isEditMode}
           >
             <option value="BRL">BRL (R$)</option>
             <option value="USD">USD ($)</option>
@@ -416,34 +529,15 @@ const Settings = () => {
             id="require_auth"
             checked={config.require_auth || false}
             onChange={(e) => handleChange('require_auth', e.target.checked)}
-            className="form-checkbox"
+            className={`form-checkbox ${!isEditMode ? 'cursor-not-allowed opacity-50' : ''}`}
+            disabled={!isEditMode}
           />
-          <label htmlFor="require_auth" className="ml-3 block text-sm font-medium text-gray-700 dark:text-gray-300">
+          <label htmlFor="require_auth" className={`ml-3 block text-sm font-medium text-gray-700 dark:text-gray-300 ${
+            !isEditMode ? 'cursor-not-allowed opacity-50' : ''
+          }`}>
             Exigir autenticação
           </label>
         </div>
-      </div>
-
-      <div className="flex justify-end">
-        <button
-          type="submit"
-          disabled={isSavingConfig}
-          className={`btn-primary flex items-center ${
-            isSavingConfig ? 'opacity-75 cursor-not-allowed' : ''
-          }`}
-        >
-          {isSavingConfig ? (
-            <>
-              <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-              Salvando...
-            </>
-          ) : (
-            <>
-              <Save className="w-4 h-4 mr-2" />
-              Salvar Configurações
-            </>
-          )}
-        </button>
       </div>
     </form>
   );
@@ -678,9 +772,6 @@ const Settings = () => {
       <div className="space-y-6">
         {activeTab === 'organization' && (
           <div className="bg-white dark:bg-gray-800 p-6 rounded-lg shadow">
-            <h2 className="text-lg font-semibold mb-4 text-gray-900 dark:text-white">
-              Configurações da Organização
-            </h2>
             {renderOrganizationForm()}
           </div>
         )}
