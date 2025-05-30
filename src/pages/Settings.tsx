@@ -543,8 +543,8 @@ const Settings = () => {
   );
 
   const renderSubscriptionContent = () => {
-    // Use isAuthenticated as a proxy for initial loading of auth/subscription info
-    if (!isAuthenticated && !user) { 
+    // Show loading only if features are still loading
+    if (isLoadingFeatures) { 
       return (
         <div className="flex justify-center items-center py-12">
           <Loader2 className="w-8 h-8 animate-spin text-blue-600" />
