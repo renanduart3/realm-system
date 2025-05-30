@@ -36,9 +36,9 @@ const Settings = () => {
   const [earlyUsersCount] = useState(27);
   
   const [config, setConfig] = useState<Partial<OrganizationSetup>>({});
-  const [loading, setLoading] = useState(false); // This is for the organization form save
+  const [isSavingConfig, setIsSavingConfig] = useState(false); // Renamed for clarity
+  const [isCreatingSubscription, setIsCreatingSubscription] = useState(false); // New state for subscription creation
   const { showToast } = useToast();
-  // const { subscription, isLoading: isLoadingSubscription, createSubscription } = useSubscription(); // Removed
   const { 
     user, 
     isAuthenticated, 
@@ -75,7 +75,7 @@ const Settings = () => {
   };
 
   const handleSave = async () => {
-    setLoading(true);
+    setIsSavingConfig(true);
     try {
       const success = await systemConfigService.saveConfig(config);
       if (success) {
@@ -90,7 +90,7 @@ const Settings = () => {
       console.error('Erro ao salvar configurações:', error);
       showToast('Erro ao salvar configurações', 'error');
     } finally {
-      setLoading(false);
+      setIsSavingConfig(false);
     }
   };
 
@@ -172,12 +172,12 @@ const Settings = () => {
 
     if (plan === 'premium') {
       try {
-        setLoading(true); // Use a local loading state for the subscribe button action
+        setIsCreatingSubscription(true);
         const stripeSession = await stripeService.createSubscription({
-          planId: 'premium', // Or a more dynamic plan ID if you have multiple premium tiers
+          planId: 'premium',
           interval: isAnnual ? 'year' : 'month',
           email: user.email,
-          paymentMethod: 'card', // Fixed to 'card'
+          paymentMethod: 'card',
         });
 
         if (stripeSession?.url) {
@@ -189,7 +189,7 @@ const Settings = () => {
         console.error('Error creating Stripe subscription session:', error);
         showToast('Erro ao iniciar assinatura. Tente novamente mais tarde.', 'error');
       } finally {
-        setLoading(false);
+        setIsCreatingSubscription(false);
       }
     } else if (plan === 'free') {
       // Logic for downgrading to Free would go here.
@@ -219,7 +219,54 @@ const Settings = () => {
 
       {/* Basic Information */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-        {/* ... (other fields) ... */}
+        <div>
+          <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">
+            Nome da Organização *
+          </label>
+          <input
+            type="text"
+            value={config.name || ''}
+            onChange={(e) => handleChange('name', e.target.value)}
+            className="mt-1 block w-full rounded-md border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white"
+            required
+          />
+        </div>
+
+        <div>
+          <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">
+            Email
+          </label>
+          <input
+            type="email"
+            value={config.email || ''}
+            onChange={(e) => handleChange('email', e.target.value)}
+            className="mt-1 block w-full rounded-md border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white"
+          />
+        </div>
+
+        <div>
+          <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">
+            Telefone
+          </label>
+          <input
+            type="tel"
+            value={config.phone || ''}
+            onChange={(e) => handleChange('phone', e.target.value)}
+            className="mt-1 block w-full rounded-md border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white"
+          />
+        </div>
+
+        <div>
+          <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">
+            Website
+          </label>
+          <input
+            type="url"
+            value={config.website || ''}
+            onChange={(e) => handleChange('website', e.target.value)}
+            className="mt-1 block w-full rounded-md border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white"
+          />
+        </div>
       </div>
 
       {/* Address */}
@@ -239,7 +286,61 @@ const Settings = () => {
       <div className="space-y-4">
         <h3 className="text-sm font-medium text-gray-700 dark:text-gray-300">Redes Sociais</h3>
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          {/* ... (social media fields) ... */}
+          <div>
+            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">
+              <Facebook className="w-4 h-4 inline mr-2" />
+              Facebook
+            </label>
+            <input
+              type="url"
+              value={config.social_media?.facebook || ''}
+              onChange={(e) => handleChange('social_media', { ...config.social_media, facebook: e.target.value })}
+              className="mt-1 block w-full rounded-md border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white"
+              placeholder="https://facebook.com/sua-empresa"
+            />
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">
+              <Instagram className="w-4 h-4 inline mr-2" />
+              Instagram
+            </label>
+            <input
+              type="url"
+              value={config.social_media?.instagram || ''}
+              onChange={(e) => handleChange('social_media', { ...config.social_media, instagram: e.target.value })}
+              className="mt-1 block w-full rounded-md border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white"
+              placeholder="https://instagram.com/sua-empresa"
+            />
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">
+              <Linkedin className="w-4 h-4 inline mr-2" />
+              LinkedIn
+            </label>
+            <input
+              type="url"
+              value={config.social_media?.linkedin || ''}
+              onChange={(e) => handleChange('social_media', { ...config.social_media, linkedin: e.target.value })}
+              className="mt-1 block w-full rounded-md border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white"
+              placeholder="https://linkedin.com/company/sua-empresa"
+            />
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">
+              <Twitter className="w-4 h-4 inline mr-2" />
+              Twitter
+            </label>
+            <input
+              type="url"
+              value={config.social_media?.twitter || ''}
+              onChange={(e) => handleChange('social_media', { ...config.social_media, twitter: e.target.value })}
+              className="mt-1 block w-full rounded-md border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white"
+              placeholder="https://twitter.com/sua-empresa"
+            />
+          </div>
         </div>
       </div>
 
@@ -247,7 +348,31 @@ const Settings = () => {
       <div className="space-y-4">
         <h3 className="text-sm font-medium text-gray-700 dark:text-gray-300">Configuração do PIX</h3>
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          {/* ... (PIX fields) ... */}
+          <div>
+            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">
+              Chave PIX
+            </label>
+            <input
+              type="text"
+              value={config.pix_key || ''}
+              onChange={(e) => handleChange('pix_key', e.target.value)}
+              className="mt-1 block w-full rounded-md border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white"
+              placeholder="Digite sua chave PIX"
+            />
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">
+              Nome do Beneficiário
+            </label>
+            <input
+              type="text"
+              value={config.pix_name || ''}
+              onChange={(e) => handleChange('pix_name', e.target.value)}
+              className="mt-1 block w-full rounded-md border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white"
+              placeholder="Nome do beneficiário PIX"
+            />
+          </div>
         </div>
       </div>
 
@@ -285,12 +410,12 @@ const Settings = () => {
       <div className="flex justify-end">
         <button
           type="submit"
-          disabled={loading}
+          disabled={isSavingConfig}
           className={`flex items-center py-2 px-4 border border-transparent rounded-lg shadow-sm text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 ${
-            loading ? 'opacity-75 cursor-not-allowed' : ''
+            isSavingConfig ? 'opacity-75 cursor-not-allowed' : ''
           }`}
         >
-          {loading ? (
+          {isSavingConfig ? (
             <>
               <Loader2 className="w-4 h-4 mr-2 animate-spin" />
               Salvando...
@@ -492,9 +617,9 @@ const Settings = () => {
               <button
                 onClick={() => handleSubscribe('premium')}
                 className="w-full py-2 px-4 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-medium transition-colors flex items-center justify-center gap-2"
-                disabled={isCurrentlyPremium || loading} // Disable if already premium or if a subscription action is loading
+                disabled={isCurrentlyPremium || isCreatingSubscription}
               >
-                {loading && planName === 'premium' ? <Loader2 className="w-5 h-5 mr-2 animate-spin" /> : <CreditCard className="w-5 h-5" />}
+                {isCreatingSubscription ? <Loader2 className="w-5 h-5 mr-2 animate-spin" /> : <CreditCard className="w-5 h-5" />}
                 {isCurrentlyPremium ? 'Plano Premium Atual' : 'Assinar Premium'}
               </button>
             </div>
