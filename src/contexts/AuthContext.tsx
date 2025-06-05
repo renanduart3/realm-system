@@ -39,7 +39,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const [promptPlanSelection, setPromptPlanSelection] = useState<boolean>(false); // Added
 
   useEffect(() => {
-    // Initialize systemConfigService and load organizationType (existing logic)
+    // Initialize systemConfigService and load organizationType
     const initializeOrgType = async () => {
       try {
         await systemConfigService.initialize();
@@ -47,7 +47,6 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         if (config && config.organization_type) {
           setOrganizationType(config.organization_type);
         }
-        // Also load from localStorage as a fallback or initial value if service is slow
         const storedOrgType = localStorage.getItem('organization_type');
         if (storedOrgType) {
           setOrganizationType(storedOrgType as 'profit' | 'nonprofit');
@@ -59,13 +58,50 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 
     initializeOrgType();
 
+    // Check initial session and try to refresh if needed
+    const checkInitialSession = async () => {
+      const { data: { session: initialSession } } = await supabaseService.auth.getSession();
+      
+      if (!initialSession) {
+        // Tenta recuperar a sessão usando o refresh token
+        const { data: { session: refreshedSession }, error } = await supabaseService.auth.refreshSession();
+        
+        if (error) {
+          console.error('Erro ao tentar refresh da sessão:', error);
+        } else if (refreshedSession) {
+          setSession(refreshedSession);
+          setUser(refreshedSession.user);
+          setIsAuthenticated(true);
+        }
+      } else {
+        setSession(initialSession);
+        setUser(initialSession.user);
+        setIsAuthenticated(true);
+      }
+      setIsInitialized(true);
+    };
+
+    checkInitialSession();
+
     // Supabase auth state change listener
     const { data: authListener } = supabaseService.auth.onAuthStateChange(
       async (event: AuthChangeEvent, session: SupabaseSession | null) => {
         console.log('Supabase Auth Event:', event, session);
-        setSession(session);
-        setUser(session?.user ?? null);
-        setIsAuthenticated(!!session?.user);
+        
+        if (event === 'SIGNED_OUT') {
+          // Limpa o estado local
+          setSession(null);
+          setUser(null);
+          setIsAuthenticated(false);
+          setSubscriptionStatus(null);
+          setPlanName(null);
+          setIsPremium(false);
+          setPromptPlanSelection(false);
+        } else {
+          setSession(session);
+          setUser(session?.user ?? null);
+          setIsAuthenticated(!!session?.user);
+        }
 
         if (event === 'SIGNED_IN' && session?.user) {
           try {
@@ -216,19 +252,6 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       }
     );
     
-    // Check initial session
-     const checkInitialSession = async () => {
-      const { data: { session: initialSession } } = await supabaseService.auth.getSession();
-      if (initialSession) {
-        setSession(initialSession);
-        setUser(initialSession.user);
-        setIsAuthenticated(true);
-      }
-      setIsInitialized(true); // Mark as initialized after checking
-    };
-    checkInitialSession();
-
-
     return () => {
       if (authListener && authListener.subscription) {
         authListener.subscription.unsubscribe();
@@ -237,12 +260,27 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   }, [isInitialized]); // Added isInitialized to dependencies
 
   const loginWithGoogle = async () => {
-    const { error } = await supabaseService.auth.signInWithOAuth({
-      provider: 'google',
-    });
-    if (error) {
-      console.error('Error logging in with Google:', error);
-      // Handle error (e.g., show toast to user)
+    try {
+      const { data, error } = await supabaseService.auth.signInWithOAuth({
+        provider: 'google',
+        options: {
+          redirectTo: window.location.origin,
+          queryParams: {
+            access_type: 'offline',
+            prompt: 'consent',
+          },
+        },
+      });
+
+      if (error) {
+        console.error('Erro ao fazer login com Google:', error);
+        throw error;
+      }
+
+      console.log('Login com Google iniciado:', data);
+    } catch (error) {
+      console.error('Erro ao iniciar login com Google:', error);
+      throw error;
     }
   };
 

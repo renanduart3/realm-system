@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
-import { Save, Loader2, CloudCog, CreditCard, Star, Check, X, Brain, Calendar, Cloud, AlertTriangle, Building2, Phone, Globe, Facebook, Instagram, Linkedin, Twitter, Pencil } from 'lucide-react';
+import { Save, Loader2, CloudCog, CreditCard, Star, Check, X, Brain, Calendar, Cloud, AlertTriangle, Building2, Phone, Globe, Facebook, Instagram, Linkedin, Twitter, Pencil, RefreshCw } from 'lucide-react';
 import { systemConfigService } from '../services/systemConfigService';
-import { googleSheetsSyncService } from '../services/googleSheets.service'; // Import instance
+import { googleSheetsSyncService } from '../services/googleSheets.service';
 import { OrganizationSetup } from '../model/types';
 import { useAuth } from '../contexts/AuthContext';
 import { db } from '../db/AppDatabase';
@@ -10,7 +10,8 @@ import { appConfig } from '../config/app.config';
 import { ConfirmDialog } from '../components/ConfirmDialog';
 import { useToast } from '../hooks/useToast';
 import useSubscriptionFeatures from '../hooks/useSubscriptionFeatures';
-import { stripeService } from '../services/payment/StripeService'; // Added stripeService
+import { stripeService } from '../services/payment/StripeService';
+import { supabaseService } from '../services/supabaseService';
 
 type SubscriptionStatus = 'active' | 'canceled' | 'past_due' | 'incomplete' | 'free' | 'none' | null;
 
@@ -34,12 +35,14 @@ const Settings = () => {
   const [isResetDialogOpen, setIsResetDialogOpen] = useState(false);
   const [isAnnual, setIsAnnual] = useState(false);
   const [earlyUsersCount] = useState(27);
-  const [isResetting, setIsResetting] = useState(false); // New state for reset process
-  const [isEditMode, setIsEditMode] = useState(false); // New state for edit mode
+  const [isResetting, setIsResetting] = useState(false);
+  const [isEditMode, setIsEditMode] = useState(false);
+  const [stripePlans, setStripePlans] = useState<any[]>([]);
+  const [isLoadingPlans, setIsLoadingPlans] = useState(false);
 
   const [config, setConfig] = useState<Partial<OrganizationSetup>>({});
-  const [isSavingConfig, setIsSavingConfig] = useState(false); // Renamed for clarity
-  const [isCreatingSubscription, setIsCreatingSubscription] = useState(false); // New state for subscription creation
+  const [isSavingConfig, setIsSavingConfig] = useState(false);
+  const [isCreatingSubscription, setIsCreatingSubscription] = useState(false);
   const { showToast } = useToast();
   const { 
     user, 
@@ -69,10 +72,48 @@ const Settings = () => {
     loadConfig();
   }, []);
 
+  useEffect(() => {
+    loadPlansFromStripe();
+  }, []);
+
   const loadConfig = async () => {
     const currentConfig = await systemConfigService.getConfig();
     if (currentConfig) {
       setConfig(currentConfig);
+    }
+  };
+
+  const loadPlansFromStripe = async () => {
+    setIsLoadingPlans(true);
+    try {
+      // Verificar sessão existente primeiro
+      supabaseService.auth.getSession().then(({ data: { session } }) => {
+      console.log('Sessão inicial:', session);
+    
+    });
+      const { data: { session } } = await supabaseService.auth.getSession();
+      
+      if (!session) {
+        throw new Error('Usuário não está autenticado');
+      }
+
+      const { data, error } = await supabaseService.functions.invoke('check-premium-subscription', {
+        headers: {
+          Authorization: `Bearer ${session.access_token}`
+        }
+      });
+
+      if (error) {
+        throw error;
+      }
+
+      console.log('Plans from Stripe:', data);
+      setStripePlans(data);
+    } catch (error) {
+      console.error('Error fetching plans from Stripe:', error);
+      showToast(`Erro ao carregar planos do Stripe: ${error}`, 'error');
+    } finally {
+      setIsLoadingPlans(false);
     }
   };
 
@@ -143,7 +184,7 @@ const Settings = () => {
       } else {
         setSyncMessage({ type: 'error', text: result.message });
       }
-    } catch (error: any) { // Catch any unexpected errors from the service call itself
+    } catch (error: any) {
       console.error('Google Sheets Sync Error:', error);
       setSyncMessage({
         type: 'error',
@@ -159,16 +200,9 @@ const Settings = () => {
     setIsResetting(true);
 
     try {
-      // Clear all data from IndexedDB
       await db.delete();
-
-      // Clear localStorage
       localStorage.clear();
-
-      // Show success message
       showToast('Sistema resetado com sucesso! Redirecionando para configuração...', 'success');
-
-      // Redirect to setup page to reconfigure the system
       setTimeout(() => {
         window.location.href = '/setup';
       }, 2000);
@@ -191,11 +225,10 @@ const Settings = () => {
 
   const handleCancelEdit = () => {
     setIsEditMode(false);
-    loadConfig(); // Reload original config to discard changes
+    loadConfig();
   };
 
   const handleSubscribe = async (plan: 'free' | 'premium') => {
-    // If user is already premium and tries to subscribe to premium again, or is free and tries to subscribe to free.
     if (plan === 'premium' && isPremium && subscriptionStatus === 'active') {
       showToast('Você já possui uma assinatura Premium ativa.', 'info');
       return;
@@ -205,9 +238,7 @@ const Settings = () => {
       return;
     }
 
-    // For premium subscriptions, we need a valid email
     if (plan === 'premium') {
-      // If not authenticated, redirect to login
       if (!isAuthenticated || !user?.email) {
         showToast('Por favor, faça login para assinar o plano Premium.', 'error');
         navigate('/login');
@@ -237,17 +268,12 @@ const Settings = () => {
         setIsCreatingSubscription(false);
       }
     } else if (plan === 'free') {
-      // Logic for downgrading to Free would go here.
-      // This typically involves backend calls to cancel any active Stripe subscription
-      // and then update the local DB (e.g., via webhook or direct call).
-      // For now, just a placeholder or info.
       showToast('A opção de downgrade para o plano gratuito precisa ser implementada no backend.', 'info');
     }
   };
 
   const renderOrganizationForm = () => (
     <form onSubmit={handleSubmit} className="space-y-6">
-      {/* Edit Mode Controls */}
       <div className="flex items-center justify-between mb-6">
         <div className="flex items-center gap-3">
           <h2 className="text-lg font-semibold text-gray-900 dark:text-white">
@@ -303,7 +329,6 @@ const Settings = () => {
         </div>
       </div>
 
-      {/* Organization Type - Always Read Only */}
       <div className="bg-gray-50 dark:bg-gray-700/30 p-4 rounded-lg border border-gray-200 dark:border-gray-600">
         <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
           Tipo de Organização
@@ -318,7 +343,6 @@ const Settings = () => {
         </div>
       </div>
 
-      {/* Basic Information */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
         <div>
           <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">
@@ -326,8 +350,8 @@ const Settings = () => {
           </label>
           <input
             type="text"
-            value={config.name || ''}
-            onChange={(e) => handleChange('name', e.target.value)}
+            value={config.organization_name || ''}
+            onChange={(e) => handleChange('organization_name', e.target.value)}
             className={`mt-1 block w-full rounded-md border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white ${
               !isEditMode ? 'bg-gray-50 dark:bg-gray-600 cursor-not-allowed' : ''
             }`}
@@ -343,8 +367,8 @@ const Settings = () => {
           </label>
           <input
             type="email"
-            value={config.email || ''}
-            onChange={(e) => handleChange('email', e.target.value)}
+            value={config.commercial_phone || ''}
+            onChange={(e) => handleChange('commercial_phone', e.target.value)}
             className={`mt-1 block w-full rounded-md border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white ${
               !isEditMode ? 'bg-gray-50 dark:bg-gray-600 cursor-not-allowed' : ''
             }`}
@@ -359,8 +383,8 @@ const Settings = () => {
           </label>
           <input
             type="tel"
-            value={config.phone || ''}
-            onChange={(e) => handleChange('phone', e.target.value)}
+            value={config.commercial_phone || ''}
+            onChange={(e) => handleChange('commercial_phone', e.target.value)}
             className={`mt-1 block w-full rounded-md border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white ${
               !isEditMode ? 'bg-gray-50 dark:bg-gray-600 cursor-not-allowed' : ''
             }`}
@@ -386,7 +410,6 @@ const Settings = () => {
         </div>
       </div>
 
-      {/* Address */}
       <div>
         <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">
           Endereço
@@ -403,7 +426,6 @@ const Settings = () => {
         />
       </div>
 
-      {/* Social Media */}
       <div className="space-y-4">
         <h3 className="text-sm font-medium text-gray-700 dark:text-gray-300">Redes Sociais</h3>
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -481,7 +503,6 @@ const Settings = () => {
         </div>
       </div>
 
-      {/* PIX Configuration */}
       <div className="space-y-4">
         <h3 className="text-sm font-medium text-gray-700 dark:text-gray-300">Configuração do PIX</h3>
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -491,8 +512,8 @@ const Settings = () => {
             </label>
             <input
               type="text"
-              value={config.pix_key || ''}
-              onChange={(e) => handleChange('pix_key', e.target.value)}
+              value={config.pix_key?.key || ''}
+              onChange={(e) => handleChange('pix_key', { type: 'random', key: e.target.value })}
               className={`mt-1 block w-full rounded-md border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white ${
                 !isEditMode ? 'bg-gray-50 dark:bg-gray-600 cursor-not-allowed' : ''
               }`}
@@ -508,8 +529,8 @@ const Settings = () => {
             </label>
             <input
               type="text"
-              value={config.pix_name || ''}
-              onChange={(e) => handleChange('pix_name', e.target.value)}
+              value={config.organization_name || ''}
+              onChange={(e) => handleChange('organization_name', e.target.value)}
               className={`mt-1 block w-full rounded-md border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white ${
                 !isEditMode ? 'bg-gray-50 dark:bg-gray-600 cursor-not-allowed' : ''
               }`}
@@ -521,7 +542,6 @@ const Settings = () => {
         </div>
       </div>
 
-      {/* System Settings */}
       <div className="space-y-4">
         <div>
           <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">
@@ -561,8 +581,7 @@ const Settings = () => {
   );
 
   const renderSubscriptionContent = () => {
-    // Show loading only if features are still loading
-    if (isLoadingFeatures) { 
+    if (isLoadingFeatures) {
       return (
         <div className="flex justify-center items-center py-12">
           <Loader2 className="w-8 h-8 animate-spin text-blue-600" />
@@ -570,14 +589,10 @@ const Settings = () => {
       );
     }
 
-    // Early bird: user has no subscription yet (status is 'inactive' or null from AuthContext for new users)
-    // or they are on a 'free' plan and it's still active.
     const isPotentiallyEarlyBird = ((subscriptionStatus === 'active' && planName === 'free')) && earlyUsersCount < 50;
-
 
     return (
       <>
-        {/* Early Access Banner */}
         {isPotentiallyEarlyBird && (
           <div className="mb-8 bg-gradient-to-r from-purple-600 to-blue-600 rounded-lg p-6 text-white">
             <div className="flex items-center justify-between flex-wrap gap-4">
@@ -598,7 +613,6 @@ const Settings = () => {
           </div>
         )}
 
-        {/* Current Subscription Status */}
         {subscriptionStatus === 'active' && (
           <div className={`mb-8 rounded-lg p-6 ${isCurrentlyPremium ? 'bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800' : 'bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800'}`}>
             <div className="flex items-center justify-between">
@@ -606,13 +620,9 @@ const Settings = () => {
                 <h3 className={`text-lg font-semibold ${isCurrentlyPremium ? 'text-green-900 dark:text-green-400' : 'text-blue-900 dark:text-blue-400'}`}>
                   {isCurrentlyPremium ? 'Assinatura Premium Ativa' : 'Plano Gratuito Ativo'}
                 </h3>
-                {/* TODO: Add currentPeriodEnd from AuthContext if available */}
-                {/* <p className={`mt-1 ${isCurrentlyPremium ? 'text-green-700 dark:text-green-300' : 'text-blue-700 dark:text-blue-300'}`}>
-                  {isCurrentlyPremium ? `Próxima cobrança em: PlaceholderDate` : "Você está utilizando o plano gratuito."}
-                </p> */}
               </div>
               <button
-                onClick={() => navigate('/subscription-status')} // Navigate to the main subscription status page
+                onClick={() => navigate('/subscription-status')}
                 className={`px-4 py-2 text-sm font-medium rounded-lg transition-colors
                   ${isCurrentlyPremium 
                     ? 'text-green-700 dark:text-green-400 border border-green-300 dark:border-green-700 hover:bg-green-100 dark:hover:bg-green-900/30' 
@@ -624,7 +634,6 @@ const Settings = () => {
           </div>
         )}
 
-        {/* Debug info - remove this later */}
         <div className="mb-4 p-3 bg-gray-100 dark:bg-gray-700 rounded text-xs">
           <div>Debug info:</div>
           <div>isAuthenticated: {String(isAuthenticated)}</div>
@@ -635,384 +644,317 @@ const Settings = () => {
           <div>user: {user ? 'exists' : 'null'}</div>
         </div>
 
-        {/* Show plans if user is not premium OR not authenticated (to allow signup) */}
-        {(!isCurrentlyPremium || !isAuthenticated) && (
+        {!isCurrentlyPremium || !isAuthenticated && (
           <>
-            {/* Billing Toggle */}
             <div className="flex justify-center mb-8">
               <div className="bg-gray-100 dark:bg-gray-700 p-1 rounded-lg inline-flex items-center">
                 <button
-                onClick={() => setIsAnnual(false)}
-                className={`px-4 py-2 rounded-lg transition-colors ${
-                  !isAnnual 
-                    ? 'bg-white dark:bg-gray-600 shadow-sm' 
-                    : 'text-gray-600 dark:text-gray-400'
-                }`}
-              >
-                Mensal
-              </button>
-              <button
-                onClick={() => setIsAnnual(true)}
-                className={`px-4 py-2 rounded-lg transition-colors ${
-                  isAnnual 
-                    ? 'bg-white dark:bg-gray-600 shadow-sm' 
-                    : 'text-gray-600 dark:text-gray-400'
-                }`}
-              >
-                Anual
-                <span className="ml-1 text-xs text-green-600 dark:text-green-400">
-                  Economize 20%
-                </span>
-              </button>
-            </div>
-          </div>
-        )
-
-        {/* Plan Cards */}
-        <div className="grid md:grid-cols-2 gap-8">
-          {/* Free Plan */}
-          <div className="bg-white dark:bg-gray-900 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700 p-8">
-            <div className="mb-6">
-              <h2 className="text-2xl font-bold mb-2">Gratuito</h2>
-              <p className="text-gray-600 dark:text-gray-400">
-                Recursos básicos para pequenos negócios
-              </p>
+                  onClick={() => setIsAnnual(false)}
+                  className={`px-4 py-2 rounded-lg transition-colors ${
+                    !isAnnual 
+                      ? 'bg-white dark:bg-gray-600 shadow-sm' 
+                      : 'text-gray-600 dark:text-gray-400'
+                  }`}
+                >
+                  Mensal
+                </button>
+                <button
+                  onClick={() => setIsAnnual(true)}
+                  className={`px-4 py-2 rounded-lg transition-colors ${
+                    isAnnual 
+                      ? 'bg-white dark:bg-gray-600 shadow-sm' 
+                      : 'text-gray-600 dark:text-gray-400'
+                  }`}
+                >
+                  Anual
+                  <span className="ml-1 text-xs text-green-600 dark:text-green-400">
+                    Economize 20%
+                  </span>
+                </button>
+              </div>
             </div>
 
-            <div className="mb-6">
-              <div className="text-3xl font-bold">R$ 0</div>
-              <div className="text-gray-600 dark:text-gray-400">Sempre gratuito</div>
-            </div>
-
-            <ul className="space-y-4 mb-8">
-              <li className="flex items-center gap-3">
-                <Check className="w-5 h-5 text-green-600" />
-                <span>Gestão básica de negócios</span>
-              </li>
-              <li className="flex items-center gap-3 text-gray-500">
-                <X className="w-5 h-5 text-red-600" />
-                <span>Sem backup na nuvem</span>
-              </li>
-              <li className="flex items-center gap-3 text-gray-500">
-                <X className="w-5 h-5 text-red-600" />
-                <span>Sem inteligência de negócios</span>
-              </li>
-              <li className="flex items-center gap-3 text-gray-500">
-                <X className="w-5 h-5 text-red-600" />
-                <span>Sem recursos de agendamento</span>
-              </li>
-            </ul>
-
-            <button
-              onClick={() => handleSubscribe('free')}
-              disabled={subscriptionStatus === 'active' && planName === 'free'} // Disable if already on active free plan
-              className="w-full py-2 px-4 border-2 border-gray-300 dark:border-gray-600 rounded-lg font-medium hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-            >
-              {subscriptionStatus === 'active' && planName === 'free' ? 'Plano Atual' : 'Selecionar Gratuito'}
-            </button>
-          </div>
-
-          {/* Premium Plan */}
-          <div className="bg-gradient-to-b from-blue-600 to-purple-600 rounded-xl shadow-lg p-[2px]">
-            <div className="bg-white dark:bg-gray-900 rounded-[calc(0.75rem-2px)] p-8 h-full">
+            {isLoadingPlans ? (
+              <div className="flex justify-center items-center py-8">
+                <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
+                <span className="ml-2 text-gray-600 dark:text-gray-400">Carregando planos do Stripe...</span>
+              </div>
+            ) : stripePlans.length > 0 ? (
               <div className="mb-6">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <h2 className="text-2xl font-bold mb-2">Premium</h2>
-                    <p className="text-gray-600 dark:text-gray-400">
-                      Recursos completos para negócios em crescimento
-                    </p>
-                  </div>
-                  <div className="bg-blue-100 dark:bg-blue-900/30 p-2 rounded-lg">
-                    <Star className="w-6 h-6 text-blue-600 dark:text-blue-400" />
-                  </div>
+                <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">
+                  Planos Disponíveis no Stripe
+                </h3>
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                  {stripePlans.map((plan, index) => (
+                    <div key={plan.id || index} className="border dark:border-gray-700 rounded-lg p-4">
+                      <h4 className="font-semibold text-gray-900 dark:text-white mb-2">
+                        {plan.nickname || plan.product?.name || 'Plano sem nome'}
+                      </h4>
+                      <div className="text-2xl font-bold text-blue-600 mb-2">
+                        {plan.currency?.toUpperCase()} {(plan.unit_amount / 100).toFixed(2)}
+                        <span className="text-sm font-normal text-gray-500">
+                          /{plan.recurring?.interval || 'month'}
+                        </span>
+                      </div>
+                      <div className="text-sm text-gray-600 dark:text-gray-400 space-y-1">
+                        <div>ID: {plan.id}</div>
+                        <div>Status: {plan.active ? 'Ativo' : 'Inativo'}</div>
+                        {plan.product?.description && (
+                          <div className="mt-2 text-xs">{plan.product.description}</div>
+                        )}
+                      </div>
+                    </div>
+                  ))}
                 </div>
               </div>
-
-              <div className="mb-6">
-                <div className="flex items-baseline gap-2">
-                  <div className="text-3xl font-bold">
-                    R$ {discountedPrice.toFixed(2)}
-                  </div>
-                  <div className="text-gray-600 dark:text-gray-400">
-                    /{isAnnual ? 'ano' : 'mês'}
-                  </div>
-                </div>
-                {isPotentiallyEarlyBird && (
-                  <div className="flex items-center gap-1 text-green-600 dark:text-green-400 text-sm mt-2">
-                    <AlertTriangle className="w-4 h-4" />
-                    <span>Preço early access - Garanta esta taxa!</span>
-                  </div>
-                )}
+            ) : (
+              <div className="text-center py-8">
+                <p className="text-gray-600 dark:text-gray-400">
+                  Nenhum plano encontrado no Stripe. Clique em "Atualizar Planos" para tentar novamente.
+                </p>
+                <button
+                  onClick={loadPlansFromStripe}
+                  className="mt-4 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 flex items-center gap-2 mx-auto"
+                >
+                  <RefreshCw className="w-4 h-4" />
+                  Atualizar Planos
+                </button>
               </div>
+            )}
 
-              <ul className="space-y-4 mb-8">
-                {premiumPlan.features.map((feature, index) => (
-                  <li key={index} className="flex items-center gap-3">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              <div className="border dark:border-gray-700 rounded-lg p-6">
+                <div className="flex items-center justify-between mb-4">
+                  <h3 className="text-lg font-semibold text-gray-900 dark:text-white">
+                    Plano Gratuito
+                  </h3>
+                  <div className="text-lg font-bold text-green-600">Sempre gratuito</div>
+                </div>
+
+                <div className="mb-6">
+                  <div className="text-3xl font-bold">R$ 0</div>
+                  <div className="text-gray-600 dark:text-gray-400">Sempre gratuito</div>
+                </div>
+
+                <ul className="space-y-4 mb-8">
+                  <li className="flex items-center gap-3">
                     <Check className="w-5 h-5 text-green-600" />
-                    <span>{feature}</span>
+                    <span>Gestão básica de negócios</span>
                   </li>
-                ))}
-              </ul>
+                  <li className="flex items-center gap-3 text-gray-500">
+                    <X className="w-5 h-5 text-red-600" />
+                    <span>Sem backup na nuvem</span>
+                  </li>
+                  <li className="flex items-center gap-3 text-gray-500">
+                    <X className="w-5 h-5 text-red-600" />
+                    <span>Sem inteligência de negócios</span>
+                  </li>
+                  <li className="flex items-center gap-3 text-gray-500">
+                    <X className="w-5 h-5 text-red-600" />
+                    <span>Sem recursos de agendamento</span>
+                  </li>
+                </ul>
 
-              <button
-                onClick={() => handleSubscribe('premium')}
-                className="w-full py-2 px-4 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-medium transition-colors flex items-center justify-center gap-2"
-                disabled={isCurrentlyPremium || isCreatingSubscription}
-              >
-                {isCreatingSubscription ? <Loader2 className="w-5 h-5 mr-2 animate-spin" /> : <CreditCard className="w-5 h-5" />}
-                {isCurrentlyPremium ? 'Plano Premium Atual' : 'Assinar Premium'}
-              </button>
+                <button
+                  onClick={() => handleSubscribe('free')}
+                  disabled={subscriptionStatus === 'active' && planName === 'free'}
+                  className="w-full py-2 px-4 border-2 border-gray-300 dark:border-gray-600 rounded-lg font-medium hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  {subscriptionStatus === 'active' && planName === 'free' ? 'Plano Atual' : 'Selecionar Gratuito'}
+                </button>
+              </div>
+
+              <div className="bg-gradient-to-b from-blue-600 to-purple-600 rounded-xl shadow-lg p-[2px]">
+                <div className="bg-white dark:bg-gray-900 rounded-[calc(0.75rem-2px)] p-8 h-full">
+                  <div className="mb-6">
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <h2 className="text-2xl font-bold mb-2">Premium</h2>
+                        <p className="text-gray-600 dark:text-gray-400">
+                          Recursos completos para negócios em crescimento
+                        </p>
+                      </div>
+                      <div className="bg-blue-100 dark:bg-blue-900/30 p-2 rounded-lg">
+                        <Star className="w-6 h-6 text-blue-600 dark:text-blue-400" />
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="mb-6">
+                    <div className="flex items-baseline gap-2">
+                      <div className="text-3xl font-bold">
+                        R$ {discountedPrice.toFixed(2)}
+                      </div>
+                      <div className="text-gray-600 dark:text-gray-400">
+                        /{isAnnual ? 'ano' : 'mês'}
+                      </div>
+                    </div>
+                    {isPotentiallyEarlyBird && (
+                      <div className="flex items-center gap-1 text-green-600 dark:text-green-400 text-sm mt-2">
+                        <AlertTriangle className="w-4 h-4" />
+                        <span>Preço early access - Garanta esta taxa!</span>
+                      </div>
+                    )}
+                  </div>
+
+                  <ul className="space-y-4 mb-8">
+                    {premiumPlan.features.map((feature, index) => (
+                      <li key={index} className="flex items-center gap-3">
+                        <Check className="w-5 h-5 text-green-600" />
+                        <span>{feature}</span>
+                      </li>
+                    ))}
+                  </ul>
+
+                  <button
+                    onClick={() => handleSubscribe('premium')}
+                    className="w-full py-2 px-4 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-medium transition-colors flex items-center justify-center gap-2"
+                    disabled={isCurrentlyPremium || isCreatingSubscription}
+                  >
+                    {isCreatingSubscription ? <Loader2 className="w-5 h-5 mr-2 animate-spin" /> : <CreditCard className="w-5 h-5" />}
+                    {isCurrentlyPremium ? 'Plano Premium Atual' : 'Assinar Premium'}
+                  </button>
+                </div>
+              </div>
             </div>
-          </div>
-        </div>
+          </>
+        )}
       </>
-      )}
-    </>
     );
   };
 
   return (
-    <div className="p-6">
-      <header className="mb-8">
-        <h1 className="text-2xl font-bold text-gray-900 dark:text-white">
-          Configurações
-        </h1>
-        <p className="mt-2 text-gray-600 dark:text-gray-400">
-          Gerencie todas as configurações do sistema
-        </p>
-      </header>
-
-      <nav className="flex space-x-4 mb-8">
-        {tabs.map(tab => (
-          <button
-            key={tab.id}
-            onClick={() => setActiveTab(tab.id)}
-            className={`py-2 px-1 border-b-2 ${
-              activeTab === tab.id
-                ? 'border-blue-500 text-blue-600'
-                : 'border-transparent text-gray-500 hover:text-gray-700'
-            }`}
-          >
-            {tab.label}
-          </button>
-        ))}
-      </nav>
-
-      <div className="space-y-6">
-        {activeTab === 'organization' && (
-          <div className="bg-white dark:bg-gray-800 p-6 rounded-lg shadow">
-            {renderOrganizationForm()}
-          </div>
-        )}
-
-        {activeTab === 'subscription' && (
-          <div className="bg-white dark:bg-gray-800 p-6 rounded-lg shadow">
-            <h2 className="text-lg font-semibold mb-4 text-gray-900 dark:text-white">
-              Planos e Assinatura
-            </h2>
-            {renderSubscriptionContent()}
-          </div>
-        )}
-
-        {activeTab === 'integrations' && (
-          <div className="bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700 p-6">
-            <h2 className="text-lg font-semibold text-gray-900 dark:text-white mb-6">
-              Integrações
-            </h2>
-
-            {isLoadingFeatures ? (
-              <div className="flex flex-col items-center justify-center p-12 border-2 border-dashed border-gray-300 dark:border-gray-600 rounded-lg">
-                <Loader2 className="w-8 h-8 animate-spin text-blue-600 mb-3" />
-                <p className="text-gray-600 dark:text-gray-400 text-sm">Verificando recursos disponíveis...</p>
-              </div>
-            ) : (
-              <div className="space-y-6">
-                {/* Google Sheets Integration */}
-                <div className={`border border-gray-200 dark:border-gray-600 rounded-lg transition-all duration-200 ${
-                  !canUseCloudBackup 
-                    ? 'bg-gray-50 dark:bg-gray-700/20 border-dashed' 
-                    : 'bg-white dark:bg-gray-800 hover:border-blue-300 dark:hover:border-blue-600'
-                }`}>
-                  <div className="p-6">
-                    <div className="flex items-start justify-between mb-4">
-                      <div className="flex-1">
-                        <div className="flex items-center gap-3 mb-2">
-                          <div className="w-10 h-10 bg-green-100 dark:bg-green-900/30 rounded-lg flex items-center justify-center">
-                            <CloudCog className="w-5 h-5 text-green-600 dark:text-green-400" />
-                          </div>
-                          <div>
-                            <h3 className="font-semibold text-gray-900 dark:text-white">
-                              Google Sheets
-                            </h3>
-                            {!canUseCloudBackup && (
-                              <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-yellow-100 dark:bg-yellow-900/30 text-yellow-800 dark:text-yellow-400">
-                                <Star className="w-3 h-3 mr-1" />
-                                Premium
-                              </span>
-                            )}
-                          </div>
-                        </div>
-                        <p className="text-sm text-gray-600 dark:text-gray-400 mb-4">
-                          Sincronize automaticamente seus dados financeiros com planilhas do Google Sheets para backup e análise avançada.
-                        </p>
-
-                        {/* Enable/Disable Toggle */}
-                        <div className="flex items-center gap-3 mb-4">
-                          <input
-                            type="checkbox"
-                            id="google_sync_enabled"
-                            checked={config.google_sync_enabled || false}
-                            onChange={(e) => handleChange('google_sync_enabled', e.target.checked)}
-                            disabled={!canUseCloudBackup}
-                            className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded disabled:opacity-50 disabled:cursor-not-allowed"
-                          />
-                          <label 
-                            htmlFor="google_sync_enabled" 
-                            className={`text-sm font-medium ${
-                              !canUseCloudBackup 
-                                ? 'text-gray-400 dark:text-gray-500 cursor-not-allowed' 
-                                : 'text-gray-700 dark:text-gray-300 cursor-pointer'
-                            }`}
-                          >
-                            Ativar sincronização automática
-                          </label>
-                        </div>
-                      </div>
-                    </div>
-
-                    {/* Action Button */}
-                    <div className="flex items-center justify-between pt-4 border-t border-gray-200 dark:border-gray-600">
-                      <div className="text-xs text-gray-500 dark:text-gray-400">
-                        {canUseCloudBackup 
-                          ? 'Clique para sincronizar seus dados agora' 
-                          : 'Atualize para Premium para usar esta funcionalidade'
-                        }
-                      </div>
-                      <button
-                        onClick={handleGoogleSheetsSync}
-                        disabled={isSyncing || !config.google_sync_enabled || !canUseCloudBackup}
-                        className={`inline-flex items-center px-4 py-2 rounded-lg text-sm font-medium transition-all duration-200 ${
-                          (isSyncing || !config.google_sync_enabled || !canUseCloudBackup)
-                            ? 'bg-gray-100 dark:bg-gray-700 cursor-not-allowed text-gray-400 dark:text-gray-500' 
-                            : 'bg-blue-600 hover:bg-blue-700 text-white shadow-sm hover:shadow-md'
-                        }`}
-                      >
-                        {isSyncing ? (
-                          <>
-                            <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                            Sincronizando...
-                          </>
-                        ) : (
-                          <>
-                            <CloudCog className="w-4 h-4 mr-2" />
-                            Sincronizar Agora
-                          </>
-                        )}
-                      </button>
-                    </div>
-
-                    {/* Sync Message */}
-                    {syncMessage && (
-                      <div className={`mt-4 p-3 rounded-lg text-sm border ${
-                        syncMessage.type === 'success' 
-                          ? 'bg-green-50 dark:bg-green-900/20 text-green-700 dark:text-green-400 border-green-200 dark:border-green-800' 
-                          : 'bg-red-50 dark:bg-red-900/20 text-red-700 dark:text-red-400 border-red-200 dark:border-red-800'
-                      }`}>
-                        <div className="flex items-center gap-2">
-                          {syncMessage.type === 'success' ? (
-                            <Check className="w-4 h-4 flex-shrink-0" />
-                          ) : (
-                            <X className="w-4 h-4 flex-shrink-0" />
-                          )}
-                          {syncMessage.text}
-                        </div>
-                      </div>
-                    )}
-                  </div>
-                </div>
-
-                {/* Future integrations placeholder */}
-                <div className="border-2 border-dashed border-gray-200 dark:border-gray-600 rounded-lg p-6 text-center">
-                  <div className="text-gray-400 dark:text-gray-500 mb-2">
-                    <Building2 className="w-8 h-8 mx-auto mb-2" />
-                  </div>
-                  <p className="text-sm text-gray-500 dark:text-gray-400">
-                    Mais integrações em breve...
-                  </p>
-                </div>
-              </div>
-            )}
-          </div>
-        )}
-
-        {activeTab === 'reset' && (
-          <div className="bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700 p-6">
-            <div className="flex items-start gap-4 mb-6">
-              <div className="w-12 h-12 bg-red-100 dark:bg-red-900/30 rounded-lg flex items-center justify-center flex-shrink-0">
-                <AlertTriangle className="w-6 h-6 text-red-600 dark:text-red-400" />
-              </div>
-              <div>
-                <h2 className="text-xl font-bold text-gray-900 dark:text-white mb-2">
-                  Resetar Sistema
-                </h2>
-                <p className="text-gray-600 dark:text-gray-400">
-                  Esta ação irá apagar permanentemente todos os dados do sistema, incluindo vendas, clientes, produtos e configurações.
-                </p>
-              </div>
-            </div>
-
-            <div className="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg p-4 mb-6">
-              <div className="flex items-center gap-2 mb-2">
-                <AlertTriangle className="w-4 h-4 text-red-600 dark:text-red-400" />
-                <span className="font-medium text-red-800 dark:text-red-400">Atenção!</span>
-              </div>
-              <ul className="text-sm text-red-700 dark:text-red-300 space-y-1">
-                <li>• Todos os dados serão permanentemente excluídos</li>
-                <li>• Esta ação não pode ser desfeita</li>
-                <li>• Você precisará configurar o sistema novamente</li>
-                <li>• Recomendamos fazer backup antes de continuar</li>
-              </ul>
-            </div>
-
-            <div className="flex items-center justify-between pt-4 border-t border-gray-200 dark:border-gray-600">
-              <div className="text-sm text-gray-500 dark:text-gray-400">
-                Use apenas se você tem certeza do que está fazendo
-              </div>
+    <div className="container mx-auto px-4 py-8">
+      <div className="flex flex-col md:flex-row gap-8">
+        <div className="w-full md:w-64 flex-shrink-0">
+          <nav className="space-y-1">
+            {tabs.map((tab) => (
               <button
-                onClick={() => setIsResetDialogOpen(true)}
-                className={`inline-flex items-center px-4 py-2 ${isResetting ? 'bg-red-400 cursor-not-allowed' : 'bg-red-600 hover:bg-red-700'} text-white rounded-lg font-medium transition-colors duration-200 shadow-sm hover:shadow-md`}
-								disabled={isResetting}
+                key={tab.id}
+                onClick={() => setActiveTab(tab.id)}
+                className={`w-full flex items-center px-4 py-2 text-sm font-medium rounded-lg ${
+                  activeTab === tab.id
+                    ? 'bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300'
+                    : 'text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800'
+                }`}
               >
-                {isResetting ? (
-									<>
-										<Loader2 className="w-4 h-4 mr-2 animate-spin" />
-										Resetando...
-									</>
-								) : (
-									<>
-										<AlertTriangle className="w-4 h-4 mr-2" />
-										Resetar Sistema
-									</>
-								)}
+                {tab.label}
               </button>
+            ))}
+          </nav>
+        </div>
+
+        <div className="flex-1">
+          {activeTab === 'organization' && renderOrganizationForm()}
+          {activeTab === 'subscription' && renderSubscriptionContent()}
+          {activeTab === 'integrations' && (
+            <div className="space-y-6">
+              <h2 className="text-lg font-semibold text-gray-900 dark:text-white">
+                Integrações
+              </h2>
+              <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-6">
+                <div className="flex items-center justify-between mb-4">
+                  <div className="flex items-center gap-3">
+                    <CloudCog className="w-6 h-6 text-blue-600" />
+                    <div>
+                      <h3 className="text-lg font-medium text-gray-900 dark:text-white">
+                        Google Sheets
+                      </h3>
+                      <p className="text-sm text-gray-500 dark:text-gray-400">
+                        Sincronize seus dados com o Google Sheets
+                      </p>
+                    </div>
+                  </div>
+                  <button
+                    onClick={handleGoogleSheetsSync}
+                    disabled={isSyncing || !canUseCloudBackup}
+                    className={`px-4 py-2 rounded-lg font-medium flex items-center gap-2 ${
+                      canUseCloudBackup
+                        ? 'bg-blue-600 text-white hover:bg-blue-700'
+                        : 'bg-gray-100 dark:bg-gray-700 text-gray-400 cursor-not-allowed'
+                    }`}
+                  >
+                    {isSyncing ? (
+                      <>
+                        <Loader2 className="w-4 h-4 animate-spin" />
+                        Sincronizando...
+                      </>
+                    ) : (
+                      <>
+                        <Cloud className="w-4 h-4" />
+                        Sincronizar
+                      </>
+                    )}
+                  </button>
+                </div>
+
+                {syncMessage && (
+                  <div
+                    className={`mt-4 p-4 rounded-lg ${
+                      syncMessage.type === 'success'
+                        ? 'bg-green-50 dark:bg-green-900/20 text-green-800 dark:text-green-200'
+                        : 'bg-red-50 dark:bg-red-900/20 text-red-800 dark:text-red-200'
+                    }`}
+                  >
+                    {syncMessage.text}
+                  </div>
+                )}
+              </div>
             </div>
-          </div>
-        )}
+          )}
+          {activeTab === 'reset' && (
+            <div className="space-y-6">
+              <h2 className="text-lg font-semibold text-gray-900 dark:text-white">
+                Resetar Sistema
+              </h2>
+              <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-6">
+                <div className="flex items-center gap-3 mb-4">
+                  <AlertTriangle className="w-6 h-6 text-red-600" />
+                  <div>
+                    <h3 className="text-lg font-medium text-gray-900 dark:text-white">
+                      Aviso Importante
+                    </h3>
+                    <p className="text-sm text-gray-500 dark:text-gray-400">
+                      Esta ação irá resetar todo o sistema para as configurações iniciais.
+                      Todos os dados serão perdidos.
+                    </p>
+                  </div>
+                </div>
+
+                <button
+                  onClick={() => setIsResetDialogOpen(true)}
+                  disabled={isResetting}
+                  className="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 font-medium flex items-center gap-2"
+                >
+                  {isResetting ? (
+                    <>
+                      <Loader2 className="w-4 h-4 animate-spin" />
+                      Resetando...
+                    </>
+                  ) : (
+                    <>
+                      <AlertTriangle className="w-4 h-4" />
+                      Resetar Sistema
+                    </>
+                  )}
+                </button>
+              </div>
+            </div>
+          )}
+        </div>
       </div>
 
       <ConfirmDialog
         isOpen={isResetDialogOpen}
         onClose={() => setIsResetDialogOpen(false)}
         onConfirm={handleResetSystem}
-        title="Resetar Sistema"
-        message="Tem certeza que deseja resetar o sistema? Todos os dados serão perdidos e esta ação não pode ser desfeita."
-        confirmText="Resetar"
+        title="Confirmar Reset do Sistema"
+        message="Tem certeza que deseja resetar o sistema? Esta ação não pode ser desfeita e todos os dados serão perdidos."
+        confirmText="Sim, Resetar"
         cancelText="Cancelar"
-        type="danger"
       />
     </div>
   );
-}
+};
 
 export default Settings;
