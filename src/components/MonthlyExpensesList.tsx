@@ -3,7 +3,7 @@ import { Transaction, ExpenseCategory } from '../model/types';
 import { transactionService } from '../services/transactionService';
 import { financialCategoryService } from '../services/financialCategoryService';
 import { formatCurrency } from '../utils/formatters';
-import { ChevronLeft, ChevronRight } from 'lucide-react';
+import { ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight } from 'lucide-react';
 import { useToast } from '../hooks/useToast';
 import PaymentModal from './PaymentModal';
 
@@ -13,6 +13,8 @@ export default function MonthlyExpensesList() {
   const [selectedCategory, setSelectedCategory] = useState<ExpenseCategory | 'all'>('all');
   const [selectedExpense, setSelectedExpense] = useState<Transaction | null>(null);
   const [isPaymentModalOpen, setIsPaymentModalOpen] = useState(false);
+  const [currentPage, setCurrentPage] = useState(1);
+  const [itemsPerPage] = useState(10);
   const { showToast } = useToast();
 
   useEffect(() => {
@@ -24,6 +26,7 @@ export default function MonthlyExpensesList() {
     const year = currentDate.getFullYear();
     const monthlyExpenses = await transactionService.getTransactionsByMonth(month, year);
     setExpenses(monthlyExpenses);
+    setCurrentPage(1); // Reset to first page when loading new data
   };
 
   const handlePaymentToggle = async (transaction: Transaction) => {
@@ -79,6 +82,16 @@ export default function MonthlyExpensesList() {
   const filteredExpenses = selectedCategory === 'all'
     ? expenses
     : expenses.filter(expense => expense.category === selectedCategory);
+
+  // Pagination calculations
+  const totalPages = Math.ceil(filteredExpenses.length / itemsPerPage);
+  const startIndex = (currentPage - 1) * itemsPerPage;
+  const endIndex = startIndex + itemsPerPage;
+  const currentExpenses = filteredExpenses.slice(startIndex, endIndex);
+
+  const handlePageChange = (page: number) => {
+    setCurrentPage(page);
+  };
 
   const totalAmount = filteredExpenses.reduce((sum, expense) => sum + expense.value, 0);
   const paidAmount = filteredExpenses
@@ -174,14 +187,14 @@ export default function MonthlyExpensesList() {
       </div>
 
       {/* Expenses List */}
-      <div className="bg-white dark:bg-gray-800 p-4 rounded-lg shadow">
-        <div className="space-y-4">
-          {filteredExpenses.length === 0 ? (
-            <p className="text-center text-gray-500 dark:text-gray-400">
-              No expenses found for this period
-            </p>
-          ) : (
-            filteredExpenses.map(expense => (
+      <div className="space-y-4">
+        {currentExpenses.length === 0 ? (
+          <p className="text-center text-gray-500 dark:text-gray-400">
+            Nenhuma despesa encontrada para este período
+          </p>
+        ) : (
+          <>
+            {currentExpenses.map(expense => (
               <div
                 key={expense.id}
                 className="p-4 border border-gray-200 dark:border-gray-700 rounded-lg"
@@ -236,9 +249,55 @@ export default function MonthlyExpensesList() {
                   </div>
                 </div>
               </div>
-            ))
-          )}
-        </div>
+            ))}
+
+            {/* Pagination Controls */}
+            {totalPages > 1 && (
+              <div className="flex items-center justify-between mt-6 px-4 py-3 bg-white dark:bg-gray-800 rounded-lg shadow">
+                <div className="flex items-center">
+                  <p className="text-sm text-gray-700 dark:text-gray-300">
+                    Mostrando <span className="font-medium">{startIndex + 1}</span> a{' '}
+                    <span className="font-medium">{Math.min(endIndex, filteredExpenses.length)}</span> de{' '}
+                    <span className="font-medium">{filteredExpenses.length}</span> despesas
+                  </p>
+                </div>
+                <div className="flex items-center space-x-2">
+                  <button
+                    onClick={() => handlePageChange(1)}
+                    disabled={currentPage === 1}
+                    className="p-2 rounded-lg text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
+                    <ChevronsLeft size={20} />
+                  </button>
+                  <button
+                    onClick={() => handlePageChange(currentPage - 1)}
+                    disabled={currentPage === 1}
+                    className="p-2 rounded-lg text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
+                    <ChevronLeft size={20} />
+                  </button>
+                  <span className="text-sm text-gray-700 dark:text-gray-300">
+                    Página {currentPage} de {totalPages}
+                  </span>
+                  <button
+                    onClick={() => handlePageChange(currentPage + 1)}
+                    disabled={currentPage === totalPages}
+                    className="p-2 rounded-lg text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
+                    <ChevronRight size={20} />
+                  </button>
+                  <button
+                    onClick={() => handlePageChange(totalPages)}
+                    disabled={currentPage === totalPages}
+                    className="p-2 rounded-lg text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
+                    <ChevronsRight size={20} />
+                  </button>
+                </div>
+              </div>
+            )}
+          </>
+        )}
       </div>
 
       {isPaymentModalOpen && selectedExpense && (

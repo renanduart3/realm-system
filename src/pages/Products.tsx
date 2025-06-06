@@ -2,6 +2,8 @@ import React, { useState } from 'react';
 import ProductList from '../components/ProductList';
 import { productService } from '../services/productService';
 import { Search } from 'lucide-react';
+import { ProductService } from '../model/types';
+import { useToast } from '../hooks/useToast';
 
 const Products = () => {
   const [productType, setProductType] = useState<'Product' | 'Service'>('Product');
@@ -15,6 +17,8 @@ const Products = () => {
   });
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [editingProduct, setEditingProduct] = useState<ProductService | null>(null);
+  const { showToast } = useToast();
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
     const { name, value } = e.target;
@@ -22,6 +26,33 @@ const Products = () => {
       ...prev,
       [name]: value
     }));
+  };
+
+  const handleEdit = (product: ProductService) => {
+    try {
+      setEditingProduct(product);
+      setProductType(product.type as 'Product' | 'Service');
+      setFormData({
+        name: product.name,
+        price: product.price.toString(),
+        description: product.description || '',
+        quantity: product.type === 'Product' ? product.quantity.toString() : '0'
+      });
+    } catch (error) {
+      showToast('Erro ao carregar produto para edição', 'error');
+    }
+  };
+
+  const resetForm = () => {
+    setFormData({
+      name: '',
+      price: '',
+      description: '',
+      quantity: '0'
+    });
+    setEditingProduct(null);
+    setProductType('Product');
+    setError(null);
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -34,47 +65,68 @@ const Products = () => {
       const quantity = productType === 'Product' ? parseInt(formData.quantity) : 0;
 
       if (!formData.name || isNaN(price)) {
-        throw new Error('Please fill in all required fields correctly');
+        throw new Error('Por favor, preencha todos os campos obrigatórios corretamente');
       }
 
-      const result = await productService.createProduct(
-        formData.name,
-        'General',
-        price,
-        quantity,
-        productType,
-        formData.description
-      );
+      if (editingProduct) {
+        // Atualizar produto existente
+        const success = await productService.updateProduct(
+          editingProduct.id,
+          formData.name,
+          'General',
+          price,
+          quantity,
+          productType,
+          formData.description
+        );
 
-      if (!result) {
-        throw new Error('Failed to create product');
+        if (!success) {
+          throw new Error('Erro ao atualizar produto');
+        }
+        showToast('Produto atualizado com sucesso', 'success');
+      } else {
+        // Criar novo produto
+        const result = await productService.createProduct(
+          formData.name,
+          'General',
+          price,
+          quantity,
+          productType,
+          formData.description
+        );
+
+        if (!result) {
+          throw new Error('Erro ao criar produto');
+        }
+        showToast('Produto criado com sucesso', 'success');
       }
 
-      setFormData({
-        name: '',
-        price: '',
-        description: '',
-        quantity: '0'
-      });
-
+      resetForm();
       window.location.reload();
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'An error occurred while saving the product');
-      console.error('Error saving product:', err);
+      const errorMessage = err instanceof Error ? err.message : 'Ocorreu um erro ao salvar o produto';
+      setError(errorMessage);
+      showToast(errorMessage, 'error');
+      console.error('Erro ao salvar produto:', err);
     } finally {
       setIsSubmitting(false);
     }
   };
 
+  const handleProductUpdated = () => {
+    // Atualizar a lista de produtos após uma operação
+    window.location.reload();
+  };
+
   return (
     <div className="space-y-6 p-4 md:p-6">
       <h1 className="text-xl md:text-2xl font-bold text-gray-900 dark:text-white">
-        Product/Service Registration
+        Cadastro de Produtos/Serviços
       </h1>
 
       <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-4 md:p-6">
         <h2 className="text-lg font-semibold mb-4 text-gray-900 dark:text-white">
-          Add New Product/Service
+          {editingProduct ? 'Editar Produto/Serviço' : 'Adicionar Novo Produto/Serviço'}
         </h2>
 
         {error && (
@@ -87,7 +139,7 @@ const Products = () => {
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div>
               <label className="form-label">
-                Name
+                Nome
               </label>
               <input
                 type="text"
@@ -101,7 +153,7 @@ const Products = () => {
 
             <div>
               <label className="form-label">
-                Type
+                Tipo
               </label>
               <select 
                 className="form-select"
@@ -112,8 +164,8 @@ const Products = () => {
                 value={productType}
                 name="type"
               >
-                <option value="Product">Product</option>
-                <option value="Service">Service</option>
+                <option value="Product">Produto</option>
+                <option value="Service">Serviço</option>
               </select>
             </div>
           </div>
@@ -121,7 +173,7 @@ const Products = () => {
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div>
               <label className="form-label">
-                Price
+                Preço
               </label>
               <input
                 type="number"
@@ -137,7 +189,7 @@ const Products = () => {
             {productType === 'Product' && (
               <div>
                 <label className="form-label">
-                  Quantity
+                  Quantidade
                 </label>
                 <input
                   type="number"
@@ -153,7 +205,7 @@ const Products = () => {
 
           <div>
             <label className="form-label">
-              Description
+              Descrição
             </label>
             <textarea
               name="description"
@@ -164,31 +216,43 @@ const Products = () => {
             />
           </div>
 
-          <button
-            type="submit"
-            disabled={isSubmitting}
-            className={`w-full md:w-auto px-6 py-2.5 rounded-lg text-white font-medium transition-colors
-              ${isSubmitting 
-                ? 'bg-blue-400 cursor-not-allowed' 
-                : 'bg-blue-600 hover:bg-blue-700 active:bg-blue-800'
-              }
-            `}
-          >
-            {isSubmitting ? (
-              <div className="flex items-center justify-center">
-                <span className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2" />
-                <span>Saving...</span>
-              </div>
-            ) : (
-              'Add Product/Service'
+          <div className="flex items-center gap-4">
+            <button
+              type="submit"
+              disabled={isSubmitting}
+              className={`px-6 py-2.5 rounded-lg text-white font-medium transition-colors
+                ${isSubmitting 
+                  ? 'bg-blue-400 cursor-not-allowed' 
+                  : 'bg-blue-600 hover:bg-blue-700 active:bg-blue-800'
+                }
+              `}
+            >
+              {isSubmitting ? (
+                <div className="flex items-center justify-center">
+                  <span className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2" />
+                  <span>Salvando...</span>
+                </div>
+              ) : (
+                editingProduct ? 'Atualizar Produto/Serviço' : 'Adicionar Produto/Serviço'
+              )}
+            </button>
+
+            {editingProduct && (
+              <button
+                type="button"
+                onClick={resetForm}
+                className="px-6 py-2.5 rounded-lg text-gray-600 dark:text-gray-400 font-medium hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
+              >
+                Cancelar Edição
+              </button>
             )}
-          </button>
+          </div>
         </form>
       </div>
 
       <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-4 md:p-6">
         <h2 className="text-lg font-semibold mb-4 text-gray-900 dark:text-white">
-          Product/Service List
+          Lista de Produtos/Serviços
         </h2>
         
         <div className="mb-4">
@@ -204,7 +268,12 @@ const Products = () => {
           </div>
         </div>
 
-        <ProductList isManager={isManager} searchTerm={searchTerm} />
+        <ProductList 
+          isManager={isManager} 
+          searchTerm={searchTerm} 
+          onEdit={handleEdit}
+          onProductUpdated={handleProductUpdated}
+        />
       </div>
     </div>
   );

@@ -7,6 +7,7 @@ import { formatCurrency } from '../utils/formatters';
 import MonthlyExpensesList from '../components/MonthlyExpensesList';
 import { supabaseService } from '../services/supabaseService';
 import { useAuth } from '../contexts/AuthContext';
+import { ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight } from 'lucide-react';
 
 export default function Expenses() {
   const [activeTab, setActiveTab] = useState<'add' | 'monthly'>('add');
@@ -23,6 +24,8 @@ export default function Expenses() {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const { showToast } = useToast();
   const [isLoading, setIsLoading] = useState(false);
+  const [currentPage, setCurrentPage] = useState(1);
+  const [itemsPerPage] = useState(10);
 
   const { user } = useAuth();
   const userEmail = user?.email;
@@ -117,6 +120,16 @@ export default function Expenses() {
       .single();
 
     return data?.status; // 'active', 'canceled', etc.
+  };
+
+  // Pagination calculations
+  const totalPages = Math.ceil(recentExpenses.length / itemsPerPage);
+  const startIndex = (currentPage - 1) * itemsPerPage;
+  const endIndex = startIndex + itemsPerPage;
+  const currentExpenses = recentExpenses.slice(startIndex, endIndex);
+
+  const handlePageChange = (page: number) => {
+    setCurrentPage(page);
   };
 
   return (
@@ -284,67 +297,115 @@ export default function Expenses() {
           </div>
 
           <div className="bg-white dark:bg-gray-800 p-6 rounded-lg shadow">
-            <h2 className="text-lg font-semibold mb-4 text-gray-900 dark:text-white">Recent Expenses</h2>
-            <div className="space-y-4 max-h-[500px] overflow-y-auto">
-              {recentExpenses.length === 0 ? (
-                <p className="text-gray-500 dark:text-gray-400 text-center">No expenses recorded yet</p>
+            <h2 className="text-lg font-semibold mb-4 text-gray-900 dark:text-white">Despesas Recentes</h2>
+            <div className="space-y-4">
+              {currentExpenses.length === 0 ? (
+                <p className="text-gray-500 dark:text-gray-400 text-center">Nenhuma despesa registrada</p>
               ) : (
-                recentExpenses.map(expense => (
-                  <div
-                    key={expense.id}
-                    className="p-4 border border-gray-200 dark:border-gray-700 rounded-lg"
-                  >
-                    <div className="flex justify-between items-start">
-                      <div>
-                        <h3 className="font-medium text-gray-900 dark:text-white">
-                          {expense.description || 'Untitled Expense'}
-                        </h3>
-                        {expense.status === 'pending' && (
-                          <p className="text-sm text-gray-500 dark:text-gray-400">
-                            Due: {new Date(expense.due_date || expense.date).toLocaleDateString()}
-                          </p>
-                        )}
-                        <span className={`inline-block px-2 py-1 text-xs font-medium rounded-full mt-1 ${
-                          financialCategoryService.getCategoryColor(expense.category)
-                        }`}>
-                          {financialCategoryService.getCategoryLabel(expense.category)}
-                        </span>
-                      </div>
-                      <div className="flex items-start space-x-4">
-                        <div className="text-right">
-                          <p className="font-semibold text-gray-900 dark:text-white">
-                            {formatCurrency(expense.value)}
-                          </p>
-                          {expense.is_recurring && (
-                            <span className="inline-block px-2 py-1 text-xs font-medium rounded-full bg-blue-100 text-blue-800 dark:bg-blue-900/20 dark:text-blue-400 mt-1">
-                              Recurring
-                            </span>
+                <>
+                  {currentExpenses.map(expense => (
+                    <div
+                      key={expense.id}
+                      className="p-4 border border-gray-200 dark:border-gray-700 rounded-lg"
+                    >
+                      <div className="flex justify-between items-start">
+                        <div>
+                          <h3 className="font-medium text-gray-900 dark:text-white">
+                            {expense.description || 'Untitled Expense'}
+                          </h3>
+                          {expense.status === 'pending' && (
+                            <p className="text-sm text-gray-500 dark:text-gray-400">
+                              Due: {new Date(expense.due_date || expense.date).toLocaleDateString()}
+                            </p>
                           )}
-                        </div>
-                        <button
-                          onClick={() => handlePaymentToggle(expense)}
-                          className={`relative inline-flex h-6 w-11 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 ${
-                            expense.status === 'paid'
-                              ? 'bg-green-500'
-                              : 'bg-gray-200 dark:bg-gray-700'
-                          }`}
-                          role="switch"
-                          aria-checked={expense.status === 'paid'}
-                        >
-                          <span className="sr-only">
-                            {expense.status === 'paid' ? 'Mark as unpaid' : 'Mark as paid'}
+                          <span className={`inline-block px-2 py-1 text-xs font-medium rounded-full mt-1 ${
+                            financialCategoryService.getCategoryColor(expense.category)
+                          }`}>
+                            {financialCategoryService.getCategoryLabel(expense.category)}
                           </span>
-                          <span
-                            aria-hidden="true"
-                            className={`pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out ${
-                              expense.status === 'paid' ? 'translate-x-5' : 'translate-x-0'
+                        </div>
+                        <div className="flex items-start space-x-4">
+                          <div className="text-right">
+                            <p className="font-semibold text-gray-900 dark:text-white">
+                              {formatCurrency(expense.value)}
+                            </p>
+                            {expense.is_recurring && (
+                              <span className="inline-block px-2 py-1 text-xs font-medium rounded-full bg-blue-100 text-blue-800 dark:bg-blue-900/20 dark:text-blue-400 mt-1">
+                                Recurring
+                              </span>
+                            )}
+                          </div>
+                          <button
+                            onClick={() => handlePaymentToggle(expense)}
+                            className={`relative inline-flex h-6 w-11 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 ${
+                              expense.status === 'paid'
+                                ? 'bg-green-500'
+                                : 'bg-gray-200 dark:bg-gray-700'
                             }`}
-                          />
+                            role="switch"
+                            aria-checked={expense.status === 'paid'}
+                          >
+                            <span className="sr-only">
+                              {expense.status === 'paid' ? 'Mark as unpaid' : 'Mark as paid'}
+                            </span>
+                            <span
+                              aria-hidden="true"
+                              className={`pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out ${
+                                expense.status === 'paid' ? 'translate-x-5' : 'translate-x-0'
+                              }`}
+                            />
+                          </button>
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+
+                  {/* Pagination Controls */}
+                  {totalPages > 1 && (
+                    <div className="flex items-center justify-between mt-6 px-4 py-3 bg-white dark:bg-gray-800 rounded-lg shadow">
+                      <div className="flex items-center">
+                        <p className="text-sm text-gray-700 dark:text-gray-300">
+                          Mostrando <span className="font-medium">{startIndex + 1}</span> a{' '}
+                          <span className="font-medium">{Math.min(endIndex, recentExpenses.length)}</span> de{' '}
+                          <span className="font-medium">{recentExpenses.length}</span> despesas
+                        </p>
+                      </div>
+                      <div className="flex items-center space-x-2">
+                        <button
+                          onClick={() => handlePageChange(1)}
+                          disabled={currentPage === 1}
+                          className="p-2 rounded-lg text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 disabled:opacity-50 disabled:cursor-not-allowed"
+                        >
+                          <ChevronsLeft size={20} />
+                        </button>
+                        <button
+                          onClick={() => handlePageChange(currentPage - 1)}
+                          disabled={currentPage === 1}
+                          className="p-2 rounded-lg text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 disabled:opacity-50 disabled:cursor-not-allowed"
+                        >
+                          <ChevronLeft size={20} />
+                        </button>
+                        <span className="text-sm text-gray-700 dark:text-gray-300">
+                          Página {currentPage} de {totalPages}
+                        </span>
+                        <button
+                          onClick={() => handlePageChange(currentPage + 1)}
+                          disabled={currentPage === totalPages}
+                          className="p-2 rounded-lg text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 disabled:opacity-50 disabled:cursor-not-allowed"
+                        >
+                          <ChevronRight size={20} />
+                        </button>
+                        <button
+                          onClick={() => handlePageChange(totalPages)}
+                          disabled={currentPage === totalPages}
+                          className="p-2 rounded-lg text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 disabled:opacity-50 disabled:cursor-not-allowed"
+                        >
+                          <ChevronsRight size={20} />
                         </button>
                       </div>
                     </div>
-                  </div>
-                ))
+                  )}
+                </>
               )}
             </div>
           </div>

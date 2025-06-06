@@ -1,23 +1,75 @@
 import React, { useEffect, useState } from 'react';
 import { ProductService } from '../model/types';
 import { getAllProducts } from '../utils/dataLoader';
-import { Pencil } from 'lucide-react';
+import { Pencil, Trash2 } from 'lucide-react';
+import { ConfirmDialog } from './ConfirmDialog';
+import { useToast } from '../hooks/useToast';
+import { productService } from '../services/productService';
 
 interface ProductListProps {
   isManager: boolean;
   searchTerm?: string;
+  onEdit?: (product: ProductService) => void;
+  onProductUpdated?: () => void;
 }
 
-const ProductList = ({ isManager, searchTerm = '' }: ProductListProps) => {
+const ProductList = ({ isManager, searchTerm = '', onEdit, onProductUpdated }: ProductListProps) => {
   const [products, setProducts] = useState<ProductService[] | null>(null);
+  const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
+  const [productToDelete, setProductToDelete] = useState<ProductService | null>(null);
+  const { showToast } = useToast();
 
   useEffect(() => {
-    const loadProducts = async () => {
-      const loadedProducts = await getAllProducts();
-      setProducts(loadedProducts);
-    };
     loadProducts();
   }, []);
+
+  const loadProducts = async () => {
+    try {
+      const loadedProducts = await getAllProducts();
+      setProducts(loadedProducts);
+    } catch (error) {
+      showToast('Erro ao carregar produtos', 'error');
+    }
+  };
+
+  const handleEdit = (product: ProductService) => {
+    try {
+      if (onEdit) {
+        onEdit(product);
+        showToast('Produto carregado para edição', 'success');
+      }
+    } catch (error) {
+      showToast('Erro ao carregar produto para edição', 'error');
+    }
+  };
+
+  const handleDelete = async (product: ProductService) => {
+    setProductToDelete(product);
+    setIsDeleteDialogOpen(true);
+  };
+
+  const confirmDelete = async () => {
+    if (!productToDelete) return;
+
+    try {
+      const success = await productService.deleteProduct(productToDelete.id);
+      if (success) {
+        showToast('Produto excluído com sucesso', 'success');
+        // Recarregar a lista de produtos
+        await loadProducts();
+        if (onProductUpdated) {
+          onProductUpdated();
+        }
+      } else {
+        showToast('Erro ao excluir produto', 'error');
+      }
+    } catch (error) {
+      showToast('Erro ao excluir produto', 'error');
+    } finally {
+      setIsDeleteDialogOpen(false);
+      setProductToDelete(null);
+    }
+  };
 
   // Filter products based on search term
   const filteredProducts = products?.filter(product =>
@@ -36,11 +88,11 @@ const ProductList = ({ isManager, searchTerm = '' }: ProductListProps) => {
   }
 
   if (products.length === 0) {
-    return <p className="text-gray-500 text-center py-4">No products or services registered yet</p>;
+    return <p className="text-gray-500 text-center py-4">Nenhum produto ou serviço registrado</p>;
   }
 
   if (filteredProducts.length === 0 && searchTerm) {
-    return <p className="text-gray-500 text-center py-4">No products found matching "{searchTerm}"</p>;
+    return <p className="text-gray-500 text-center py-4">Nenhum produto encontrado para "{searchTerm}"</p>;
   }
 
   // Mobile card view for small screens
@@ -54,33 +106,46 @@ const ProductList = ({ isManager, searchTerm = '' }: ProductListProps) => {
           <div className="flex justify-between items-start mb-2">
             <h3 className="font-medium text-gray-900 dark:text-white">{product.name}</h3>
             {isManager && (
-              <button className="text-blue-600 hover:text-blue-800 p-1">
-                <Pencil className="h-5 w-5" />
-              </button>
+              <div className="flex items-center gap-2">
+                <button 
+                  onClick={() => handleEdit(product)}
+                  className="text-blue-600 hover:text-blue-800 p-1 transition-colors"
+                  title="Editar produto"
+                >
+                  <Pencil className="h-5 w-5" />
+                </button>
+                <button 
+                  onClick={() => handleDelete(product)}
+                  className="text-red-600 hover:text-red-800 p-1 transition-colors"
+                  title="Excluir produto"
+                >
+                  <Trash2 className="h-5 w-5" />
+                </button>
+              </div>
             )}
           </div>
           <div className="space-y-2 text-sm">
             <div className="flex justify-between">
-              <span className="text-gray-500 dark:text-gray-400">Category:</span>
+              <span className="text-gray-500 dark:text-gray-400">Categoria:</span>
               <span className="text-gray-900 dark:text-white">{product.category}</span>
             </div>
             <div className="flex justify-between">
-              <span className="text-gray-500 dark:text-gray-400">Type:</span>
+              <span className="text-gray-500 dark:text-gray-400">Tipo:</span>
               <span className="text-gray-900 dark:text-white">{product.type}</span>
             </div>
             <div className="flex justify-between">
-              <span className="text-gray-500 dark:text-gray-400">Price:</span>
+              <span className="text-gray-500 dark:text-gray-400">Preço:</span>
               <span className="text-gray-900 dark:text-white">R$ {product.price.toFixed(2)}</span>
             </div>
             {product.type === 'Product' && (
               <div className="flex justify-between">
-                <span className="text-gray-500 dark:text-gray-400">Quantity:</span>
+                <span className="text-gray-500 dark:text-gray-400">Quantidade:</span>
                 <span className="text-gray-900 dark:text-white">{product.quantity}</span>
               </div>
             )}
             {product.description && (
               <div className="pt-2">
-                <span className="text-gray-500 dark:text-gray-400 block mb-1">Description:</span>
+                <span className="text-gray-500 dark:text-gray-400 block mb-1">Descrição:</span>
                 <span className="text-gray-900 dark:text-white">{product.description}</span>
               </div>
             )}
@@ -96,14 +161,14 @@ const ProductList = ({ isManager, searchTerm = '' }: ProductListProps) => {
       <table className="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
         <thead className="bg-gray-50 dark:bg-gray-800">
           <tr>
-            <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Name</th>
-            <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Category</th>
-            <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Type</th>
-            <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Price</th>
-            <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Quantity</th>
-            <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Description</th>
+            <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Nome</th>
+            <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Categoria</th>
+            <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Tipo</th>
+            <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Preço</th>
+            <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Quantidade</th>
+            <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Descrição</th>
             {isManager && (
-              <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Actions</th>
+              <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Ações</th>
             )}
           </tr>
         </thead>
@@ -120,9 +185,22 @@ const ProductList = ({ isManager, searchTerm = '' }: ProductListProps) => {
               <td className="px-6 py-4 text-sm text-gray-900 dark:text-white truncate max-w-xs">{product.description}</td>
               {isManager && (
                 <td className="px-6 py-4 whitespace-nowrap text-right">
-                  <button className="text-blue-600 hover:text-blue-800 p-1">
-                    <Pencil className="h-5 w-5" />
-                  </button>
+                  <div className="flex items-center justify-end gap-2">
+                    <button 
+                      onClick={() => handleEdit(product)}
+                      className="text-blue-600 hover:text-blue-800 p-1 transition-colors"
+                      title="Editar produto"
+                    >
+                      <Pencil className="h-5 w-5" />
+                    </button>
+                    <button 
+                      onClick={() => handleDelete(product)}
+                      className="text-red-600 hover:text-red-800 p-1 transition-colors"
+                      title="Excluir produto"
+                    >
+                      <Trash2 className="h-5 w-5" />
+                    </button>
+                  </div>
                 </td>
               )}
             </tr>
@@ -136,6 +214,19 @@ const ProductList = ({ isManager, searchTerm = '' }: ProductListProps) => {
     <>
       {mobileView}
       {desktopView}
+
+      <ConfirmDialog
+        isOpen={isDeleteDialogOpen}
+        onClose={() => {
+          setIsDeleteDialogOpen(false);
+          setProductToDelete(null);
+        }}
+        onConfirm={confirmDelete}
+        title="Confirmar Exclusão"
+        message={`Tem certeza que deseja excluir o produto "${productToDelete?.name}"? Esta ação não pode ser desfeita.`}
+        confirmText="Sim, Excluir"
+        cancelText="Cancelar"
+      />
     </>
   );
 };

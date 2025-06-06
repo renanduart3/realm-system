@@ -49,7 +49,7 @@ export default function Layout({ children }: LayoutProps) {
       />
       
       <main className={`pt-16 transition-all duration-300 ${
-        isSidebarOpen ? 'md:pl-64' : 'md:pl-20'
+        isSidebarOpen ? 'md:pl-20' : 'md:pl-20'
       }`}>
         {children}
       </main>

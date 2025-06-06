@@ -86,11 +86,6 @@ const Settings = () => {
   const loadPlansFromStripe = async () => {
     setIsLoadingPlans(true);
     try {
-      // Verificar sessão existente primeiro
-      supabaseService.auth.getSession().then(({ data: { session } }) => {
-      console.log('Sessão inicial:', session);
-    
-    });
       const { data: { session } } = await supabaseService.auth.getSession();
       
       if (!session) {
@@ -107,8 +102,24 @@ const Settings = () => {
         throw error;
       }
 
-      console.log('Plans from Stripe:', data);
-      setStripePlans(data);
+      // Transformar os dados recebidos para o formato esperado pelo componente
+      const transformedData = [{
+        id: 'premium',
+        nickname: 'Premium',
+        product: {
+          name: 'Premium',
+          description: 'Plano Premium com todos os recursos'
+        },
+        currency: 'BRL',
+        unit_amount: data.type === 'monthly' ? 4990 : 47900, // R$ 49,90 ou R$ 479,00
+        recurring: {
+          interval: data.type === 'monthly' ? 'month' : 'year'
+        },
+        active: data.active
+      }];
+
+      console.log('Plans from Stripe:', transformedData);
+      setStripePlans(transformedData);
     } catch (error) {
       console.error('Error fetching plans from Stripe:', error);
       showToast(`Erro ao carregar planos do Stripe: ${error}`, 'error');
@@ -229,21 +240,10 @@ const Settings = () => {
   };
 
   const handleSubscribe = async (plan: 'free' | 'premium') => {
-    if (plan === 'premium' && isPremium && subscriptionStatus === 'active') {
-      showToast('Você já possui uma assinatura Premium ativa.', 'info');
+    if (!isAuthenticated || !user?.email) {
+      showToast('Por favor, faça login para assinar o plano Premium.', 'error');
+      navigate('/login');
       return;
-    }
-    if (plan === 'free' && !isPremium && subscriptionStatus === 'active') {
-      showToast('Você já está no plano Gratuito.', 'info');
-      return;
-    }
-
-    if (plan === 'premium') {
-      if (!isAuthenticated || !user?.email) {
-        showToast('Por favor, faça login para assinar o plano Premium.', 'error');
-        navigate('/login');
-        return;
-      }
     }
 
     if (plan === 'premium') {
@@ -261,14 +261,14 @@ const Settings = () => {
         } else {
           showToast('Não foi possível iniciar o processo de assinatura. Tente novamente.', 'error');
         }
-      } catch (error) {
+      } catch (error: any) {
         console.error('Error creating Stripe subscription session:', error);
-        showToast('Erro ao iniciar assinatura. Tente novamente mais tarde.', 'error');
+        showToast(error.message || 'Erro ao iniciar assinatura. Tente novamente mais tarde.', 'error');
       } finally {
         setIsCreatingSubscription(false);
       }
-    } else if (plan === 'free') {
-      showToast('A opção de downgrade para o plano gratuito precisa ser implementada no backend.', 'info');
+    } else {
+      showToast('Você já está no plano gratuito.', 'info');
     }
   };
 
@@ -634,199 +634,149 @@ const Settings = () => {
           </div>
         )}
 
-        <div className="mb-4 p-3 bg-gray-100 dark:bg-gray-700 rounded text-xs">
-          <div>Debug info:</div>
-          <div>isAuthenticated: {String(isAuthenticated)}</div>
-          <div>isPremium: {String(isPremium)}</div>
-          <div>subscriptionStatus: {subscriptionStatus || 'null'}</div>
-          <div>planName: {planName || 'null'}</div>
-          <div>isCurrentlyPremium: {String(isCurrentlyPremium)}</div>
-          <div>user: {user ? 'exists' : 'null'}</div>
-        </div>
-
-        {!isCurrentlyPremium || !isAuthenticated && (
-          <>
-            <div className="flex justify-center mb-8">
-              <div className="bg-gray-100 dark:bg-gray-700 p-1 rounded-lg inline-flex items-center">
-                <button
-                  onClick={() => setIsAnnual(false)}
-                  className={`px-4 py-2 rounded-lg transition-colors ${
-                    !isAnnual 
-                      ? 'bg-white dark:bg-gray-600 shadow-sm' 
-                      : 'text-gray-600 dark:text-gray-400'
-                  }`}
-                >
-                  Mensal
-                </button>
-                <button
-                  onClick={() => setIsAnnual(true)}
-                  className={`px-4 py-2 rounded-lg transition-colors ${
-                    isAnnual 
-                      ? 'bg-white dark:bg-gray-600 shadow-sm' 
-                      : 'text-gray-600 dark:text-gray-400'
-                  }`}
-                >
-                  Anual
-                  <span className="ml-1 text-xs text-green-600 dark:text-green-400">
-                    Economize 20%
-                  </span>
-                </button>
-              </div>
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
+          <div className="border dark:border-gray-700 rounded-lg p-6">
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="text-lg font-semibold text-gray-900 dark:text-white">
+                Plano Gratuito
+              </h3>
+              <div className="text-lg font-bold text-green-600">Sempre gratuito</div>
             </div>
 
-            {isLoadingPlans ? (
-              <div className="flex justify-center items-center py-8">
-                <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
-                <span className="ml-2 text-gray-600 dark:text-gray-400">Carregando planos do Stripe...</span>
-              </div>
-            ) : stripePlans.length > 0 ? (
+            <div className="mb-6">
+              <div className="text-3xl font-bold">R$ 0</div>
+              <div className="text-gray-600 dark:text-gray-400">Sempre gratuito</div>
+            </div>
+
+            <ul className="space-y-4 mb-8">
+              <li className="flex items-center gap-3">
+                <Check className="w-5 h-5 text-green-600" />
+                <span>Gestão básica de negócios</span>
+              </li>
+              <li className="flex items-center gap-3 text-gray-500">
+                <X className="w-5 h-5 text-red-600" />
+                <span>Sem backup na nuvem</span>
+              </li>
+              <li className="flex items-center gap-3 text-gray-500">
+                <X className="w-5 h-5 text-red-600" />
+                <span>Sem inteligência de negócios</span>
+              </li>
+              <li className="flex items-center gap-3 text-gray-500">
+                <X className="w-5 h-5 text-red-600" />
+                <span>Sem recursos de agendamento</span>
+              </li>
+            </ul>
+
+            <button
+              onClick={() => handleSubscribe('free')}
+              disabled={subscriptionStatus === 'active' && planName === 'free'}
+              className="w-full py-2 px-4 border-2 border-gray-300 dark:border-gray-600 rounded-lg font-medium hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              {subscriptionStatus === 'active' && planName === 'free' ? 'Plano Atual' : 'Selecionar Gratuito'}
+            </button>
+          </div>
+
+          <div className="bg-gradient-to-b from-blue-600 to-purple-600 rounded-xl shadow-lg p-[2px]">
+            <div className="bg-white dark:bg-gray-900 rounded-[calc(0.75rem-2px)] p-8 h-full">
               <div className="mb-6">
-                <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">
-                  Planos Disponíveis no Stripe
-                </h3>
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                  {stripePlans.map((plan, index) => (
-                    <div key={plan.id || index} className="border dark:border-gray-700 rounded-lg p-4">
-                      <h4 className="font-semibold text-gray-900 dark:text-white mb-2">
-                        {plan.nickname || plan.product?.name || 'Plano sem nome'}
-                      </h4>
-                      <div className="text-2xl font-bold text-blue-600 mb-2">
-                        {plan.currency?.toUpperCase()} {(plan.unit_amount / 100).toFixed(2)}
-                        <span className="text-sm font-normal text-gray-500">
-                          /{plan.recurring?.interval || 'month'}
-                        </span>
-                      </div>
-                      <div className="text-sm text-gray-600 dark:text-gray-400 space-y-1">
-                        <div>ID: {plan.id}</div>
-                        <div>Status: {plan.active ? 'Ativo' : 'Inativo'}</div>
-                        {plan.product?.description && (
-                          <div className="mt-2 text-xs">{plan.product.description}</div>
-                        )}
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            ) : (
-              <div className="text-center py-8">
-                <p className="text-gray-600 dark:text-gray-400">
-                  Nenhum plano encontrado no Stripe. Clique em "Atualizar Planos" para tentar novamente.
-                </p>
-                <button
-                  onClick={loadPlansFromStripe}
-                  className="mt-4 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 flex items-center gap-2 mx-auto"
-                >
-                  <RefreshCw className="w-4 h-4" />
-                  Atualizar Planos
-                </button>
-              </div>
-            )}
-
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-              <div className="border dark:border-gray-700 rounded-lg p-6">
-                <div className="flex items-center justify-between mb-4">
-                  <h3 className="text-lg font-semibold text-gray-900 dark:text-white">
-                    Plano Gratuito
-                  </h3>
-                  <div className="text-lg font-bold text-green-600">Sempre gratuito</div>
-                </div>
-
-                <div className="mb-6">
-                  <div className="text-3xl font-bold">R$ 0</div>
-                  <div className="text-gray-600 dark:text-gray-400">Sempre gratuito</div>
-                </div>
-
-                <ul className="space-y-4 mb-8">
-                  <li className="flex items-center gap-3">
-                    <Check className="w-5 h-5 text-green-600" />
-                    <span>Gestão básica de negócios</span>
-                  </li>
-                  <li className="flex items-center gap-3 text-gray-500">
-                    <X className="w-5 h-5 text-red-600" />
-                    <span>Sem backup na nuvem</span>
-                  </li>
-                  <li className="flex items-center gap-3 text-gray-500">
-                    <X className="w-5 h-5 text-red-600" />
-                    <span>Sem inteligência de negócios</span>
-                  </li>
-                  <li className="flex items-center gap-3 text-gray-500">
-                    <X className="w-5 h-5 text-red-600" />
-                    <span>Sem recursos de agendamento</span>
-                  </li>
-                </ul>
-
-                <button
-                  onClick={() => handleSubscribe('free')}
-                  disabled={subscriptionStatus === 'active' && planName === 'free'}
-                  className="w-full py-2 px-4 border-2 border-gray-300 dark:border-gray-600 rounded-lg font-medium hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-                >
-                  {subscriptionStatus === 'active' && planName === 'free' ? 'Plano Atual' : 'Selecionar Gratuito'}
-                </button>
-              </div>
-
-              <div className="bg-gradient-to-b from-blue-600 to-purple-600 rounded-xl shadow-lg p-[2px]">
-                <div className="bg-white dark:bg-gray-900 rounded-[calc(0.75rem-2px)] p-8 h-full">
-                  <div className="mb-6">
-                    <div className="flex items-center justify-between">
-                      <div>
-                        <h2 className="text-2xl font-bold mb-2">Premium</h2>
-                        <p className="text-gray-600 dark:text-gray-400">
-                          Recursos completos para negócios em crescimento
-                        </p>
-                      </div>
-                      <div className="bg-blue-100 dark:bg-blue-900/30 p-2 rounded-lg">
-                        <Star className="w-6 h-6 text-blue-600 dark:text-blue-400" />
-                      </div>
-                    </div>
+                <div className="flex items-center justify-between">
+                  <div>
+                    <h2 className="text-2xl font-bold mb-2">Premium</h2>
+                    <p className="text-gray-600 dark:text-gray-400">
+                      Recursos completos para negócios em crescimento
+                    </p>
                   </div>
-
-                  <div className="mb-6">
-                    <div className="flex items-baseline gap-2">
-                      <div className="text-3xl font-bold">
-                        R$ {discountedPrice.toFixed(2)}
-                      </div>
-                      <div className="text-gray-600 dark:text-gray-400">
-                        /{isAnnual ? 'ano' : 'mês'}
-                      </div>
-                    </div>
-                    {isPotentiallyEarlyBird && (
-                      <div className="flex items-center gap-1 text-green-600 dark:text-green-400 text-sm mt-2">
-                        <AlertTriangle className="w-4 h-4" />
-                        <span>Preço early access - Garanta esta taxa!</span>
-                      </div>
-                    )}
+                  <div className="bg-blue-100 dark:bg-blue-900/30 p-2 rounded-lg">
+                    <Star className="w-6 h-6 text-blue-600 dark:text-blue-400" />
                   </div>
+                </div>
+              </div>
 
-                  <ul className="space-y-4 mb-8">
-                    {premiumPlan.features.map((feature, index) => (
-                      <li key={index} className="flex items-center gap-3">
-                        <Check className="w-5 h-5 text-green-600" />
-                        <span>{feature}</span>
-                      </li>
-                    ))}
-                  </ul>
-
+              <div className="flex justify-center mb-6">
+                <div className="bg-gray-100 dark:bg-gray-700 p-1 rounded-lg inline-flex items-center">
                   <button
-                    onClick={() => handleSubscribe('premium')}
-                    className="w-full py-2 px-4 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-medium transition-colors flex items-center justify-center gap-2"
-                    disabled={isCurrentlyPremium || isCreatingSubscription}
+                    onClick={() => setIsAnnual(false)}
+                    className={`px-4 py-2 rounded-lg transition-colors ${
+                      !isAnnual 
+                        ? 'bg-white dark:bg-gray-600 shadow-sm' 
+                        : 'text-gray-600 dark:text-gray-400'
+                    }`}
                   >
-                    {isCreatingSubscription ? <Loader2 className="w-5 h-5 mr-2 animate-spin" /> : <CreditCard className="w-5 h-5" />}
-                    {isCurrentlyPremium ? 'Plano Premium Atual' : 'Assinar Premium'}
+                    Mensal
+                  </button>
+                  <button
+                    onClick={() => setIsAnnual(true)}
+                    className={`px-4 py-2 rounded-lg transition-colors ${
+                      isAnnual 
+                        ? 'bg-white dark:bg-gray-600 shadow-sm' 
+                        : 'text-gray-600 dark:text-gray-400'
+                    }`}
+                  >
+                    Anual
+                    <span className="ml-1 text-xs text-green-600 dark:text-green-400">
+                      Economize 20%
+                    </span>
                   </button>
                 </div>
               </div>
+
+              <div className="mb-6">
+                <div className="flex items-baseline gap-2">
+                  <div className="text-3xl font-bold">
+                    R$ {discountedPrice.toFixed(2)}
+                  </div>
+                  <div className="text-gray-600 dark:text-gray-400">
+                    /{isAnnual ? 'ano' : 'mês'}
+                  </div>
+                </div>
+                {isPotentiallyEarlyBird && (
+                  <div className="flex items-center gap-1 text-green-600 dark:text-green-400 text-sm mt-2">
+                    <AlertTriangle className="w-4 h-4" />
+                    <span>Preço early access - Garanta esta taxa!</span>
+                  </div>
+                )}
+              </div>
+
+              <ul className="space-y-4 mb-8">
+                {premiumPlan.features.map((feature, index) => (
+                  <li key={index} className="flex items-center gap-3">
+                    <Check className="w-5 h-5 text-green-600" />
+                    <span>{feature}</span>
+                  </li>
+                ))}
+              </ul>
+
+              <button
+                onClick={() => handleSubscribe('premium')}
+                className="w-full py-2 px-4 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-medium transition-colors flex items-center justify-center gap-2"
+                disabled={isCurrentlyPremium || isCreatingSubscription}
+              >
+                {isCreatingSubscription ? <Loader2 className="w-5 h-5 mr-2 animate-spin" /> : <CreditCard className="w-5 h-5" />}
+                {isCurrentlyPremium ? 'Plano Premium Atual' : 'Assinar Premium'}
+              </button>
             </div>
-          </>
-        )}
+          </div>
+        </div>
+
+        <div className="mt-8 p-4 bg-gray-100 dark:bg-gray-800 rounded-lg">
+          <h3 className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Informações de Debug:</h3>
+          <div className="grid grid-cols-2 md:grid-cols-3 gap-2 text-xs text-gray-600 dark:text-gray-400">
+            <div>isAuthenticated: {String(isAuthenticated)}</div>
+            <div>isPremium: {String(isPremium)}</div>
+            <div>subscriptionStatus: {subscriptionStatus || 'null'}</div>
+            <div>planName: {planName || 'null'}</div>
+            <div>isCurrentlyPremium: {String(isCurrentlyPremium)}</div>
+            <div>user: {user ? 'exists' : 'null'}</div>
+          </div>
+        </div>
       </>
     );
   };
 
   return (
-    <div className="container mx-auto px-4 py-8">
-      <div className="flex flex-col md:flex-row gap-8">
-        <div className="w-full md:w-64 flex-shrink-0">
+    <div className="container mx-auto px-2 sm:px-4 py-8">
+      <div className="flex flex-col md:flex-row gap-4 md:gap-8">
+        <div className="w-full md:w-56 flex-shrink-0">
           <nav className="space-y-1">
             {tabs.map((tab) => (
               <button
