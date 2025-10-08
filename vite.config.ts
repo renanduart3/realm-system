@@ -2,6 +2,14 @@ import path from "path"
 import { defineConfig } from 'vite';
 import react from '@vitejs/plugin-react';
 import { VitePWA } from 'vite-plugin-pwa';
+import { UserConfig as VitestUserConfig } from 'vitest/config';
+
+// Extend the Vite configuration with Vitest-specific options
+const vitestConfig: VitestUserConfig['test'] = {
+  globals: true,
+  environment: 'jsdom',
+  setupFiles: './src/tests/setup.ts',
+};
 
 export default defineConfig({
   plugins: [
@@ -35,4 +43,6 @@ export default defineConfig({
       "@": path.resolve(__dirname, "./src"),
     },
   },
+  // @ts-ignore
+  test: vitestConfig,
 });

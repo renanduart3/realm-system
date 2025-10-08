@@ -345,10 +345,11 @@ const Settings = () => {
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
         <div>
-          <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">
+          <label htmlFor="organization_name" className="block text-sm font-medium text-gray-700 dark:text-gray-300">
             Nome da Organização *
           </label>
           <input
+            id="organization_name"
             type="text"
             value={config.organization_name || ''}
             onChange={(e) => handleChange('organization_name', e.target.value)}
