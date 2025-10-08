@@ -12,6 +12,8 @@ import { mockDataService } from "./services/mockDataService";
 import { systemConfigService } from "./services/systemConfigService";
 import { stripeService } from "./services/payment/StripeService";
 import Layout from "./components/Layout";
+import PaymentSuccess from "./pages/payment/PaymentSuccess";
+import PaymentCancel from "./pages/payment/PaymentCancel";
 import Dashboard from "./pages/Dashboard";
 import Sales from "./pages/Sales";
 import Clients from "./pages/Clients";
@@ -27,86 +29,6 @@ import SetupWizard from "./pages/SetupWizard";
 import SubscriptionStatus from "./pages/SubscriptionStatus";
 import Preloader from "./components/Preloader";
 
-// Payment success/cancel pages
-const PaymentSuccess = () => {
-  const searchParams = new URLSearchParams(window.location.search);
-  const sessionId = searchParams.get("session_id");
-
-  const [message, setMessage] = useState("Processing payment...");
-  const [isError, setIsError] = useState(false);
-
-  useEffect(() => {
-    if (sessionId) {
-      const verifySession = async () => {
-        try {
-          // TODO: Update subscription status (primarily handled by webhooks, but client can trigger a refresh)
-          await stripeService.handlePaymentSuccess(sessionId);
-          setMessage("Payment Successful! Redirecting to your subscription...");
-          setIsError(false);
-          setTimeout(() => {
-            window.location.href = "/subscription";
-          }, 3000); // Redirect after 3 seconds
-        } catch (error) {
-          console.error("Error verifying payment session:", error);
-          setMessage(
-            "There was an issue verifying your payment. Please check your subscription status or contact support.",
-          );
-          setIsError(true);
-          // Optionally, redirect to /subscription or a support page after a delay
-          setTimeout(() => {
-            window.location.href = "/subscription";
-          }, 5000);
-        }
-      };
-      verifySession();
-    } else {
-      setMessage("No session ID found. Redirecting...");
-      setIsError(true);
-      setTimeout(() => {
-        window.location.href = "/subscription";
-      }, 3000);
-    }
-  }, [sessionId]);
-
-  return (
-    <div className="min-h-screen flex items-center justify-center">
-      <div className="text-center p-6">
-        <h1
-          className={`text-2xl font-bold mb-4 ${isError ? "text-red-600" : "text-green-600"}`}
-        >
-          {isError ? "Payment Verification Error" : "Payment Status"}
-        </h1>
-        <p className="text-gray-600 dark:text-gray-400">{message}</p>
-        {!isError && (
-          <div className="mt-4 animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mx-auto"></div>
-        )}
-      </div>
-    </div>
-  );
-};
-
-const PaymentCancel = () => {
-  useEffect(() => {
-    // Redirect back to subscription page after a short delay
-    const timer = setTimeout(() => {
-      window.location.href = "/subscription";
-    }, 3000);
-    return () => clearTimeout(timer);
-  }, []);
-
-  return (
-    <div className="min-h-screen flex items-center justify-center">
-      <div className="text-center">
-        <h1 className="text-2xl font-bold text-gray-900 dark:text-white mb-4">
-          Payment Cancelled
-        </h1>
-        <p className="text-gray-600 dark:text-gray-400">
-          You'll be redirected back to the subscription page...
-        </p>
-      </div>
-    </div>
-  );
-};
 
 function App() {
   const [isLoading, setIsLoading] = useState(true);

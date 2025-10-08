@@ -22,6 +22,7 @@ interface AuthContextProps {
   planName: string | null;
   isPremium: boolean;
   promptPlanSelection: boolean; // Added
+  refreshSubscription: () => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextProps | undefined>(undefined);
@@ -330,6 +331,35 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     // window.location.reload(); // Consider if reload is still needed or if UI can react to state change
   };
 
+  const refreshSubscription = async () => {
+    if (!session?.user) {
+      console.log("Cannot refresh subscription, no user session.");
+      return;
+    }
+    try {
+      console.log('Refreshing subscription for user:', session.user.id);
+      const { data: sub, error: subError } = await supabaseService
+        .from('subscriptions')
+        .select('status, plan_name')
+        .eq('user_id', session.user.id)
+        .maybeSingle();
+
+      if (subError) {
+        console.error('Error refreshing subscription:', subError);
+      } else if (sub) {
+        console.log('Refreshed subscription data found:', sub);
+        setSubscriptionStatus(sub.status);
+        setPlanName(sub.plan_name);
+        const isActivePremium = sub.status === 'active' && sub.plan_name === 'premium';
+        setIsPremium(isActivePremium);
+      } else {
+        console.log('No subscription record found for user during refresh.');
+      }
+    } catch (e) {
+      console.error('Exception during subscription refresh:', e);
+    }
+  };
+
   // Render a loading state or null until Supabase has checked the session
   if (!isInitialized) {
     // You can return a global loading spinner here if you prefer
@@ -351,7 +381,8 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       subscriptionStatus,
       planName,
       isPremium,
-      promptPlanSelection // Added
+      promptPlanSelection, // Added
+      refreshSubscription
     }}>
       {children}
     </AuthContext.Provider>
