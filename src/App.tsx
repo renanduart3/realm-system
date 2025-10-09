@@ -36,51 +36,37 @@ function App() {
 
   useEffect(() => {
     const initializeApp = async () => {
+      setIsLoading(true);
       try {
         console.log("Starting app initialization...");
 
-        // Initialize mock data when the app starts
-        try {
-          await mockDataService.initializeMockData();
-          console.log("Mock data initialized successfully");
-        } catch (mockError) {
-          console.error("Failed to initialize mock data:", mockError);
-          // Continue initialization even if mock data fails
-        }
+        // Check if system is configured first
+        const config = await systemConfigService.getConfig();
+        const configured = !!config?.is_configured;
+        setIsConfigured(configured);
+        console.log("System configuration checked:", configured);
 
-        // Check if system is configured
-        try {
-          const config = await systemConfigService.getConfig();
-          const configured = config?.is_configured || false;
-          setIsConfigured(configured);
-          console.log("System configuration checked:", configured);
-
-          // Se não estiver configurado e não estiver na página de setup, redireciona
-          if (!configured && window.location.pathname !== "/setup") {
+        if (!configured) {
+          if (window.location.pathname !== "/setup") {
             console.log("System not configured, redirecting to setup...");
             window.location.href = "/setup";
-            return; // Exit early to prevent further initialization
+            return;
           }
-        } catch (configError) {
-          console.error("Failed to check system config:", configError);
-          // If config check fails or database doesn't exist (after reset), assume not configured
-          setIsConfigured(false);
-          if (window.location.pathname !== "/setup") {
-            console.log("Config check failed, redirecting to setup...");
-            window.location.href = "/setup";
-            return; // Exit early to prevent further initialization
-          }
+        } else {
+          // If configured, then initialize mock data if in dev mode
+          await mockDataService.initializeMockData();
+          console.log("Mock data initialization attempted.");
         }
-
-        // Simulate minimum loading time for better UX
-        await new Promise((resolve) => setTimeout(resolve, 1000));
-        console.log("App initialization completed");
       } catch (error) {
         console.error("Critical error during app initialization:", error);
-        // Even on critical error, we should stop loading
         setIsConfigured(false);
+        if (window.location.pathname !== "/setup") {
+          window.location.href = "/setup";
+          return;
+        }
       } finally {
-        setIsLoading(false);
+        // Add a small delay to prevent screen flickering
+        setTimeout(() => setIsLoading(false), 500);
       }
     };
 
