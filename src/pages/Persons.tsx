@@ -169,7 +169,7 @@ export default function Persons() {
             resetForm();
             setIsModalOpen(true);
           }}
-          className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 flex items-center"
+          className="btn-primary flex items-center"
         >
           <Plus className="w-4 h-4 mr-2" />
           Nova Pessoa
@@ -184,7 +184,7 @@ export default function Persons() {
             placeholder="Buscar pessoas..."
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
-            className="pl-10 pr-4 py-2 w-full rounded-lg border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white"
+            className="form-input pl-10"
           />
         </div>
       </div>
@@ -295,11 +295,11 @@ export default function Persons() {
                   required
                   value={formData.name}
                   onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-                  className="mt-1 block w-full rounded-md border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white"
+                  className="form-input"
                 />
               </div>
               <div>
-                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">
+                <label className="form-label">
                   Email
                 </label>
                 <input
@@ -307,11 +307,11 @@ export default function Persons() {
                   required
                   value={formData.email}
                   onChange={(e) => setFormData({ ...formData, email: e.target.value })}
-                  className="mt-1 block w-full rounded-md border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white"
+                  className="form-input"
                 />
               </div>
               <div>
-                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">
+                <label className="form-label">
                   Telefone
                 </label>
                 <input
@@ -319,61 +319,39 @@ export default function Persons() {
                   required
                   value={formData.phone}
                   onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
-                  className="mt-1 block w-full rounded-md border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white"
+                  className="form-input"
                 />
               </div>
-              <div className="flex items-center">
-                <input
-                  type="checkbox"
-                  id="isWhatsApp"
-                  checked={formData.isWhatsApp}
-                  onChange={(e) => setFormData({ ...formData, isWhatsApp: e.target.checked })}
-                  className="rounded border-gray-300 text-blue-600 shadow-sm focus:border-blue-300 focus:ring focus:ring-blue-200 focus:ring-opacity-50"
-                />
-                <label htmlFor="isWhatsApp" className="ml-2 block text-sm text-gray-900 dark:text-gray-300">
-                  Este número possui WhatsApp
-                </label>
-              </div>
-              {natureType === 'nonprofit' && (
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">
-                    Data de Nascimento
-                  </label>
-                  <input
-                    type="date"
-                    value={formData.birthDate}
-                    onChange={(e) => setFormData({ ...formData, birthDate: e.target.value })}
-                    className="mt-1 block w-full rounded-md border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white"
-                  />
-                </div>
-              )}
-              <div>
-                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">
-                  Documento
-                </label>
-                <input
-                  type="text"
-                  required={natureType === 'profit'}
-                  value={formData.document}
-                  onChange={(e) => setFormData({ ...formData, document: e.target.value })}
-                  className="mt-1 block w-full rounded-md border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white"
-                />
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">
-                  Endereço
-                </label>
-                <input
-                  type="text"
-                  value={formData.address}
-                  onChange={(e) => setFormData({ ...formData, address: e.target.value })}
-                  className="mt-1 block w-full rounded-md border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white"
-                />
-              </div>
-              {natureType === 'profit' && (
+              {natureType === 'nonprofit' ? (
+                <>
+                  <div className="flex items-center">
+                    <input
+                      type="checkbox"
+                      id="isWhatsApp"
+                      checked={formData.isWhatsApp}
+                      onChange={(e) => setFormData({ ...formData, isWhatsApp: e.target.checked })}
+                      className="form-checkbox"
+                    />
+                    <label htmlFor="isWhatsApp" className="ml-2 block text-sm text-gray-900 dark:text-gray-300">
+                      Este número possui WhatsApp
+                    </label>
+                  </div>
+                  <div>
+                    <label className="form-label">
+                      Data de Nascimento
+                    </label>
+                    <input
+                      type="date"
+                      value={formData.birthDate}
+                      onChange={(e) => setFormData({ ...formData, birthDate: e.target.value })}
+                      className="form-input"
+                    />
+                  </div>
+                </>
+              ) : (
                 <>
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">
+                    <label className="form-label">
                       Renda Familiar
                     </label>
                     <input
@@ -381,24 +359,47 @@ export default function Persons() {
                       step="0.01"
                       value={formData.familyIncome}
                       onChange={(e) => setFormData({ ...formData, familyIncome: e.target.value })}
-                      className="mt-1 block w-full rounded-md border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white"
+                      className="form-input"
                     />
                   </div>
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">
+                    <label className="form-label">
                       Observações
                     </label>
                     <textarea
                       value={formData.notes}
                       onChange={(e) => setFormData({ ...formData, notes: e.target.value })}
-                      className="mt-1 block w-full rounded-md border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white"
+                      className="form-textarea"
                       rows={3}
                     />
                   </div>
                 </>
               )}
               <div>
-                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                <label className="form-label">
+                  Documento
+                </label>
+                <input
+                  type="text"
+                  required={natureType === 'profit'}
+                  value={formData.document}
+                  onChange={(e) => setFormData({ ...formData, document: e.target.value })}
+                  className="form-input"
+                />
+              </div>
+              <div>
+                <label className="form-label">
+                  Endereço
+                </label>
+                <input
+                  type="text"
+                  value={formData.address}
+                  onChange={(e) => setFormData({ ...formData, address: e.target.value })}
+                  className="form-input"
+                />
+              </div>
+              <div>
+                <label className="form-label mb-2">
                   Programas Sociais
                 </label>
                 <div className="space-y-2">
@@ -408,7 +409,7 @@ export default function Persons() {
                         type="checkbox"
                         checked={formData.socialPrograms.includes(program)}
                         onChange={() => handleSocialProgramChange(program)}
-                        className="rounded border-gray-300 text-blue-600 shadow-sm focus:border-blue-300 focus:ring focus:ring-blue-200 focus:ring-opacity-50"
+                        className="form-checkbox"
                       />
                       <span className="ml-2 text-sm text-gray-700 dark:text-gray-300">{program}</span>
                     </label>
@@ -423,13 +424,13 @@ export default function Persons() {
                     setEditingPerson(null);
                     resetForm();
                   }}
-                  className="px-4 py-2 border border-gray-300 rounded-md text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700"
+                  className="btn-secondary"
                 >
                   Cancelar
                 </button>
                 <button
                   type="submit"
-                  className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700"
+                  className="btn-primary"
                 >
                   {editingPerson ? 'Salvar' : 'Criar'}
                 </button>

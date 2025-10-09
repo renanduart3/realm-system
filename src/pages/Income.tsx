@@ -151,7 +151,7 @@ export default function Income() {
                         resetForm();
                         setIsModalOpen(true);
                     }}
-                    className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 flex items-center"
+                    className="btn-primary flex items-center"
                 >
                     <Plus className="w-4 h-4 mr-2" />
                     Nova Entrada
@@ -166,7 +166,7 @@ export default function Income() {
                         placeholder="Buscar entradas..."
                         value={searchTerm}
                         onChange={(e) => setSearchTerm(e.target.value)}
-                        className="pl-10 pr-4 py-2 w-full rounded-lg border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white"
+                        className="form-input pl-10"
                     />
                 </div>
             </div>
@@ -216,7 +216,7 @@ export default function Income() {
                                     required
                                     value={formData.description}
                                     onChange={(e) => setFormData({ ...formData, description: e.target.value })}
-                                    className="mt-1 block w-full rounded-md border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white"
+                                    className="form-input"
                                 />
                             </div>
 
@@ -230,7 +230,7 @@ export default function Income() {
                                     step="0.01"
                                     value={formData.amount}
                                     onChange={(e) => setFormData({ ...formData, amount: e.target.value })}
-                                    className="mt-1 block w-full rounded-md border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white"
+                                    className="form-input"
                                 />
                             </div>
 
@@ -243,7 +243,7 @@ export default function Income() {
                                     required
                                     value={formData.date}
                                     onChange={(e) => setFormData({ ...formData, date: e.target.value })}
-                                    className="mt-1 block w-full rounded-md border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white"
+                                    className="form-input"
                                 />
                             </div>
 
@@ -284,7 +284,7 @@ export default function Income() {
                                     id="is_recurring"
                                     checked={formData.is_recurring}
                                     onChange={(e) => setFormData({ ...formData, is_recurring: e.target.checked })}
-                                    className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
+                                    className="form-checkbox"
                                 />
                                 <label htmlFor="is_recurring" className="ml-2 block text-sm text-gray-900 dark:text-gray-300">
                                     Entrada Recorrente
@@ -315,13 +315,13 @@ export default function Income() {
                                         setIsModalOpen(false);
                                         resetForm();
                                     }}
-                                    className="px-4 py-2 text-sm font-medium text-gray-700 bg-gray-100 hover:bg-gray-200 rounded-md"
+                                    className="btn-secondary"
                                 >
                                     Cancelar
                                 </button>
                                 <button
                                     type="submit"
-                                    className="px-4 py-2 text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 rounded-md"
+                                    className="btn-primary"
                                 >
                                     {editingIncome ? 'Atualizar' : 'Salvar'}
                                 </button>
