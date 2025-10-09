@@ -28,10 +28,6 @@ class StripeService {
     return planId in appConfig.subscription.plans;
   }
 
-  private validateAmount(amount: number): boolean {
-    return amount > 0 && amount <= 999999.99;
-  }
-
   async createSubscription(options: SubscriptionOptions) {
     try {
       // Validações
@@ -44,19 +40,9 @@ class StripeService {
       }
 
       const plan = appConfig.subscription.plans[options.planId];
-      const amount = options.interval === 'month' ? 
-        plan.price.monthly : 
-        plan.price.annual;
-
-      if (!this.validateAmount(amount)) {
-        throw new Error('Valor inválido para o plano');
-      }
-
-      // Apply early bird discount if eligible
-      let finalAmount = amount;
-      if (plan.earlyBirdDiscount?.enabled) {
-        finalAmount = amount * (1 - plan.earlyBirdDiscount.discountPercentage / 100);
-      }
+      const priceId = options.interval === 'month' ?
+        plan.price.monthlyPriceId :
+        plan.price.annualPriceId;
 
       // Obter a sessão atual do Supabase
       const { data: { session } } = await supabaseService.auth.getSession();
@@ -69,11 +55,8 @@ class StripeService {
       const { data, error } = await supabaseService.functions.invoke('realm-stripe-function', {
         body: {
           action: 'create-checkout-session',
-          planId: options.planId,
-          interval: options.interval,
-          email: options.email,
-          paymentMethod: options.paymentMethod,
-          amount: finalAmount
+          priceId,
+          email: options.email
         },
         headers: {
           Authorization: `Bearer ${session.access_token}`
