@@ -5,6 +5,8 @@ interface SubscriptionPlan {
   price: {
     monthly: number;
     annual: number;
+    monthlyPriceId: string; // Add this
+    annualPriceId: string;  // Add this
   };
   features: string[];
   earlyBirdDiscount?: {
@@ -33,7 +35,10 @@ export const appConfig = {
         description: 'Acesso completo a todas as funcionalidades',
         price: {
           monthly: 49.90,
-          annual: 479.00  // ~20% discount for annual
+          annual: 479.00,  // ~20% discount for annual
+          // TODO: Replace with actual Stripe Price IDs
+          monthlyPriceId: 'price_xxxxxxxxxxxxxxxxx',
+          annualPriceId: 'price_yyyyyyyyyyyyyyyyy'
         },
         features: [
           'Gestão completa de vendas',

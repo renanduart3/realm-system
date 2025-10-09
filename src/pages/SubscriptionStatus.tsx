@@ -20,6 +20,10 @@ export default function SubscriptionStatus() {
 
   const planDetails = appConfig.subscription.plans.premium;
 
+  const annualDiscount = Math.round(
+    (1 - (planDetails.price.annual / (planDetails.price.monthly * 12))) * 100
+  );
+
   const handleSubscribe = async (interval: 'month' | 'year') => {
     if (!user?.email) {
       showToast('Por favor, faça login para assinar.', 'error');
@@ -113,7 +117,7 @@ export default function SubscriptionStatus() {
             {/* Plano Anual */}
             <div className="border dark:border-gray-700 rounded-lg p-6 relative">
               <div className="absolute top-4 right-4 bg-green-500 text-white text-xs font-bold px-2 py-1 rounded">
-                Economize 20%
+                Economize {annualDiscount}%
               </div>
               <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-2">
                 Premium Anual
