@@ -1,13 +1,15 @@
 import React, { useState, useEffect } from 'react';
 import { Plus, Search, Edit2, Trash2, Calendar } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
-import type { Income, TransactionType } from '../model/types';
+import type { Income, Person, TransactionType } from '../model/types';
 import { incomeService } from '../services/incomeService';
+import { personService } from '../services/personService';
 import { formatCurrency } from '../utils/formatters';
 import { useAuth } from '../contexts/AuthContext';
 
 export default function Income() {
     const [incomes, setIncomes] = useState<Income[]>([]);
+    const [persons, setPersons] = useState<Person[]>([]);
     const [isModalOpen, setIsModalOpen] = useState(false);
     const [editingIncome, setEditingIncome] = useState<Income | null>(null);
     const [searchTerm, setSearchTerm] = useState('');
@@ -18,6 +20,7 @@ export default function Income() {
         amount: string;
         date: string;
         donor_id: string;
+        person_id: string;
         category: string;
         type: TransactionType;
         is_recurring: boolean;
@@ -27,6 +30,7 @@ export default function Income() {
         amount: '',
         date: new Date().toISOString().split('T')[0],
         donor_id: '',
+        person_id: '',
         category: '',
         type: 'donation' as TransactionType,
         is_recurring: false,
@@ -40,11 +44,17 @@ export default function Income() {
             return;
         }
         loadIncomes();
+        loadPersons();
     }, [organizationType, navigate]);
 
     const loadIncomes = async () => {
         const data = await incomeService.getAllIncome();
         setIncomes(data);
+    };
+
+    const loadPersons = async () => {
+        const data = await personService.getAllPersons();
+        setPersons(data);
     };
 
     const handleSubmit = async (e: React.FormEvent) => {
@@ -94,6 +104,7 @@ export default function Income() {
             amount: '',
             date: new Date().toISOString().split('T')[0],
             donor_id: '',
+            person_id: '',
             category: '',
             type: 'donation' as TransactionType,
             is_recurring: false,
@@ -102,9 +113,30 @@ export default function Income() {
         setEditingIncome(null);
     };
 
+    const handleEdit = (income: Income) => {
+        setEditingIncome(income);
+        setFormData({
+            description: income.description,
+            amount: String(income.amount),
+            date: income.date.split('T')[0],
+            donor_id: income.donor_id || '',
+            person_id: income.person_id || '',
+            category: income.category,
+            type: income.type,
+            is_recurring: income.is_recurring,
+            recurrence_period: income.recurrence_period || 'monthly',
+        });
+        setIsModalOpen(true);
+    };
+
     const filteredIncomes = incomes.filter(income =>
         income.description.toLowerCase().includes(searchTerm.toLowerCase())
     );
+
+    const getPersonName = (personId: string) => {
+        const person = persons.find(p => p.id === personId);
+        return person ? person.name : 'Não vinculado';
+    };
 
     if (organizationType !== 'nonprofit') {
         return null;
@@ -137,6 +169,34 @@ export default function Income() {
                         className="pl-10 pr-4 py-2 w-full rounded-lg border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white"
                     />
                 </div>
+            </div>
+
+            <div className="bg-white dark:bg-gray-800 rounded-lg shadow overflow-hidden">
+                <table className="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
+                    <thead className="bg-gray-50 dark:bg-gray-700">
+                        <tr>
+                            <th className="th-default">Descrição</th>
+                            <th className="th-default">Pessoa Vinculada</th>
+                            <th className="th-default">Valor</th>
+                            <th className="th-default">Data</th>
+                            <th className="th-default">Ações</th>
+                        </tr>
+                    </thead>
+                    <tbody className="bg-white dark:bg-gray-800 divide-y divide-gray-200 dark:divide-gray-700">
+                        {filteredIncomes.map((income) => (
+                            <tr key={income.id}>
+                                <td className="td-default">{income.description}</td>
+                                <td className="td-default">{getPersonName(income.person_id || '')}</td>
+                                <td className="td-default">{formatCurrency(income.amount)}</td>
+                                <td className="td-default">{new Date(income.date).toLocaleDateString('pt-BR')}</td>
+                                <td className="td-default">
+                                    <button onClick={() => handleEdit(income)} className="mr-2 text-blue-500"><Edit2 size={16} /></button>
+                                    <button onClick={() => handleDelete(income.id)} className="text-red-500"><Trash2 size={16} /></button>
+                                </td>
+                            </tr>
+                        ))}
+                    </tbody>
+                </table>
             </div>
 
             {/* Modal de Formulário */}
@@ -185,6 +245,22 @@ export default function Income() {
                                     onChange={(e) => setFormData({ ...formData, date: e.target.value })}
                                     className="mt-1 block w-full rounded-md border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white"
                                 />
+                            </div>
+
+                            <div>
+                                <label className="form-label">
+                                    Vincular à Pessoa (Opcional)
+                                </label>
+                                <select
+                                    value={formData.person_id}
+                                    onChange={(e) => setFormData({ ...formData, person_id: e.target.value })}
+                                    className="form-select"
+                                >
+                                    <option value="">Nenhuma</option>
+                                    {persons.map(person => (
+                                        <option key={person.id} value={person.id}>{person.name}</option>
+                                    ))}
+                                </select>
                             </div>
 
                             <div>

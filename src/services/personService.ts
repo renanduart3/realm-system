@@ -10,7 +10,10 @@ export const personService = {
     document: string,
     address?: string,
     socialPrograms?: string[],
-    familyIncome?: number
+    familyIncome?: number,
+    isWhatsApp?: boolean,
+    birthDate?: string,
+    notes?: string,
   ): Promise<Person | null> {
     try {
       const newPerson: Person = {
@@ -22,6 +25,9 @@ export const personService = {
         address,
         socialPrograms,
         familyIncome,
+        isWhatsApp,
+        birthDate,
+        notes,
         created_at: new Date().toISOString(),
         updated_at: new Date().toISOString()
       };

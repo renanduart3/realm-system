@@ -1,15 +1,17 @@
 import React, { useState, useEffect } from 'react';
-import { Plus, Pencil, Trash2, Search } from 'lucide-react';
+import { Plus, Pencil, Trash2, Search, ExternalLink } from 'lucide-react';
 import { personService } from '../services/personService';
 import { Person } from '../model/types';
 import { ToastContainer, toast } from 'react-toastify';
 import 'react-toastify/dist/ReactToastify.css';
+import { systemConfigService } from '../services/systemConfigService';
 
 export default function Persons() {
   const [persons, setPersons] = useState<Person[]>([]);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingPerson, setEditingPerson] = useState<Person | null>(null);
   const [searchTerm, setSearchTerm] = useState('');
+  const [natureType, setNatureType] = useState<'profit' | 'nonprofit'>('profit');
   const [formData, setFormData] = useState({
     name: '',
     email: '',
@@ -18,10 +20,19 @@ export default function Persons() {
     address: '',
     familyIncome: '',
     socialPrograms: [] as string[],
-    notes: ''
+    notes: '',
+    isWhatsApp: false,
+    birthDate: ''
   });
 
   useEffect(() => {
+    const fetchConfig = async () => {
+      const config = await systemConfigService.getSystemConfig();
+      if (config) {
+        setNatureType(config.organization_type);
+      }
+    };
+    fetchConfig();
     loadPersons();
   }, []);
 
@@ -38,22 +49,29 @@ export default function Persons() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     try {
+      const personData = {
+        ...formData,
+        familyIncome: formData.familyIncome ? Number(formData.familyIncome) : undefined,
+      };
+
       if (editingPerson) {
         await personService.editPerson({
           ...editingPerson,
-          ...formData,
-          familyIncome: Number(formData.familyIncome)
+          ...personData,
         });
         toast.success('Pessoa atualizada com sucesso!');
       } else {
         await personService.createPerson(
-          formData.name,
-          formData.email,
-          formData.phone,
-          formData.document,
-          formData.address,
-          formData.socialPrograms,
-          Number(formData.familyIncome)
+          personData.name,
+          personData.email,
+          personData.phone,
+          personData.document,
+          personData.address,
+          personData.socialPrograms,
+          personData.familyIncome,
+          personData.isWhatsApp,
+          personData.birthDate,
+          personData.notes
         );
         toast.success('Pessoa criada com sucesso!');
       }
@@ -77,7 +95,9 @@ export default function Persons() {
       address: person.address || '',
       familyIncome: person.familyIncome?.toString() || '',
       socialPrograms: person.socialPrograms || [],
-      notes: person.notes || ''
+      notes: person.notes || '',
+      isWhatsApp: person.isWhatsApp || false,
+      birthDate: person.birthDate ? person.birthDate.split('T')[0] : ''
     });
     setIsModalOpen(true);
   };
@@ -104,7 +124,9 @@ export default function Persons() {
       address: '',
       familyIncome: '',
       socialPrograms: [],
-      notes: ''
+      notes: '',
+      isWhatsApp: false,
+      birthDate: ''
     });
   };
 
@@ -174,12 +196,25 @@ export default function Persons() {
               <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
                 Nome
               </th>
-              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
-                Documento
-              </th>
-              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
-                Renda Familiar
-              </th>
+              {natureType === 'nonprofit' ? (
+                <>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
+                    Data de Nasc.
+                  </th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
+                    Telefone
+                  </th>
+                </>
+              ) : (
+                <>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
+                    Documento
+                  </th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
+                    Renda Familiar
+                  </th>
+                </>
+              )}
               <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
                 Programas Sociais
               </th>
@@ -194,12 +229,32 @@ export default function Persons() {
                 <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900 dark:text-white">
                   {person.name}
                 </td>
-                <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-300">
-                  {person.document}
-                </td>
-                <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-300">
-                  {person.familyIncome ? formatCurrency(person.familyIncome) : '-'}
-                </td>
+                {natureType === 'nonprofit' ? (
+                  <>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-300">
+                      {person.birthDate ? new Date(person.birthDate).toLocaleDateString('pt-BR') : '-'}
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-300">
+                      <div className="flex items-center">
+                        {person.phone}
+                        {person.isWhatsApp && (
+                          <a href={`https://wa.me/${person.phone}`} target="_blank" rel="noopener noreferrer" className="ml-2 text-green-500 hover:text-green-700">
+                            <ExternalLink className="w-4 h-4" />
+                          </a>
+                        )}
+                      </div>
+                    </td>
+                  </>
+                ) : (
+                  <>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-300">
+                      {person.document}
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-300">
+                      {person.familyIncome ? formatCurrency(person.familyIncome) : '-'}
+                    </td>
+                  </>
+                )}
                 <td className="px-6 py-4 text-sm text-gray-500 dark:text-gray-300">
                   {person.socialPrograms?.join(', ') || '-'}
                 </td>
@@ -267,13 +322,38 @@ export default function Persons() {
                   className="mt-1 block w-full rounded-md border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white"
                 />
               </div>
+              <div className="flex items-center">
+                <input
+                  type="checkbox"
+                  id="isWhatsApp"
+                  checked={formData.isWhatsApp}
+                  onChange={(e) => setFormData({ ...formData, isWhatsApp: e.target.checked })}
+                  className="rounded border-gray-300 text-blue-600 shadow-sm focus:border-blue-300 focus:ring focus:ring-blue-200 focus:ring-opacity-50"
+                />
+                <label htmlFor="isWhatsApp" className="ml-2 block text-sm text-gray-900 dark:text-gray-300">
+                  Este número possui WhatsApp
+                </label>
+              </div>
+              {natureType === 'nonprofit' && (
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">
+                    Data de Nascimento
+                  </label>
+                  <input
+                    type="date"
+                    value={formData.birthDate}
+                    onChange={(e) => setFormData({ ...formData, birthDate: e.target.value })}
+                    className="mt-1 block w-full rounded-md border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white"
+                  />
+                </div>
+              )}
               <div>
                 <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">
                   Documento
                 </label>
                 <input
                   type="text"
-                  required
+                  required={natureType === 'profit'}
                   value={formData.document}
                   onChange={(e) => setFormData({ ...formData, document: e.target.value })}
                   className="mt-1 block w-full rounded-md border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white"
@@ -290,18 +370,33 @@ export default function Persons() {
                   className="mt-1 block w-full rounded-md border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white"
                 />
               </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">
-                  Renda Familiar
-                </label>
-                <input
-                  type="number"
-                  step="0.01"
-                  value={formData.familyIncome}
-                  onChange={(e) => setFormData({ ...formData, familyIncome: e.target.value })}
-                  className="mt-1 block w-full rounded-md border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white"
-                />
-              </div>
+              {natureType === 'profit' && (
+                <>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">
+                      Renda Familiar
+                    </label>
+                    <input
+                      type="number"
+                      step="0.01"
+                      value={formData.familyIncome}
+                      onChange={(e) => setFormData({ ...formData, familyIncome: e.target.value })}
+                      className="mt-1 block w-full rounded-md border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">
+                      Observações
+                    </label>
+                    <textarea
+                      value={formData.notes}
+                      onChange={(e) => setFormData({ ...formData, notes: e.target.value })}
+                      className="mt-1 block w-full rounded-md border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white"
+                      rows={3}
+                    />
+                  </div>
+                </>
+              )}
               <div>
                 <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
                   Programas Sociais
@@ -319,17 +414,6 @@ export default function Persons() {
                     </label>
                   ))}
                 </div>
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">
-                  Observações
-                </label>
-                <textarea
-                  value={formData.notes}
-                  onChange={(e) => setFormData({ ...formData, notes: e.target.value })}
-                  className="mt-1 block w-full rounded-md border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white"
-                  rows={3}
-                />
               </div>
               <div className="flex justify-end space-x-3">
                 <button

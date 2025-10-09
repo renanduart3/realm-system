@@ -86,7 +86,7 @@ export class AppDatabase extends Dexie {
       products: '++id',
       income: '++id',
       donors: '++id',
-      persons: '++id',
+      persons: '++id, name, email, document',
       systemUsers: '++id',
       sales: '++id',
       saleItems: '++id, sale_id, product_service_id',
