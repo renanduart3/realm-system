@@ -2,14 +2,10 @@ import { loadStripe } from '@stripe/stripe-js';
 import { appConfig } from '../../config/app.config';
 import { supabaseService } from '../supabaseService';
 
-type PlanId = keyof typeof appConfig.subscription.plans;
-type PaymentInterval = 'month' | 'year';
-
+// Interface simplificada para a criação da assinatura
 interface SubscriptionOptions {
-  planId: PlanId;
-  interval: PaymentInterval;
+  priceId: string;
   email: string;
-  paymentMethod: 'card';
 }
 
 class StripeService {
@@ -24,38 +20,25 @@ class StripeService {
     return this.VALID_EMAIL_REGEX.test(email);
   }
 
-  private validatePlanId(planId: PlanId): boolean {
-    return planId in appConfig.subscription.plans;
-  }
-
   async createSubscription(options: SubscriptionOptions) {
     try {
-      // Validações
       if (!this.validateEmail(options.email)) {
         throw new Error('Email inválido');
       }
-
-      if (!this.validatePlanId(options.planId)) {
-        throw new Error('Plano inválido');
+      if (!options.priceId) {
+        throw new Error('Price ID do Stripe é obrigatório');
       }
 
-      const plan = appConfig.subscription.plans[options.planId];
-      const priceId = options.interval === 'month' ?
-        plan.price.monthlyPriceId :
-        plan.price.annualPriceId;
-
-      // Obter a sessão atual do Supabase
       const { data: { session } } = await supabaseService.auth.getSession();
       
       if (!session) {
         throw new Error('Usuário não está autenticado');
       }
 
-      // Usar o cliente Supabase para chamar a Edge Function
       const { data, error } = await supabaseService.functions.invoke('realm-stripe-function', {
         body: {
           action: 'create-checkout-session',
-          priceId,
+          priceId: options.priceId,
           email: options.email
         },
         headers: {
@@ -80,6 +63,24 @@ class StripeService {
       });
       throw error;
     }
+  }
+
+  async handlePaymentSuccess(sessionId: string): Promise<any> {
+    const { data: { session } } = await supabaseService.auth.getSession();
+    if (!session) throw new Error('Usuário não autenticado');
+
+    const { data, error } = await supabaseService.functions.invoke('realm-stripe-function', {
+      body: {
+        action: 'handle-payment-success',
+        sessionId: sessionId,
+      },
+      headers: {
+        Authorization: `Bearer ${session.access_token}`
+      }
+    });
+
+    if (error) throw error;
+    return data;
   }
 }
 

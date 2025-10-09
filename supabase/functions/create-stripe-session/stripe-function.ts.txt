@@ -1,0 +1,66 @@
+// supabase/functions/realm-stripe-function/index.ts
+import { serve } from 'https://deno.land/std@0.177.0/http/server.ts';
+import Stripe from 'https://esm.sh/stripe@12.12.0?target=deno';
+const stripe = new Stripe(Deno.env.get('STRIPE_SECRET_KEY'), {
+  apiVersion: '2022-11-15',
+  httpClient: Stripe.createFetchHttpClient()
+});
+const corsHeaders = {
+  'Access-Control-Allow-Origin': '*',
+  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type'
+};
+serve(async (req)=>{
+  if (req.method === 'OPTIONS') {
+    return new Response('ok', {
+      headers: corsHeaders
+    });
+  }
+  try {
+    const { action, priceId, email } = await req.json();
+    if (action === 'create-checkout-session') {
+      const session = await stripe.checkout.sessions.create({
+        payment_method_types: [
+          'card'
+        ],
+        line_items: [
+          {
+            price: priceId,
+            quantity: 1
+          }
+        ],
+        mode: 'subscription',
+        customer_email: email,
+        success_url: `${Deno.env.get('SITE_URL')}/payment/success?session_id={CHECKOUT_SESSION_ID}`,
+        cancel_url: `${Deno.env.get('SITE_URL')}/payment/cancel`
+      });
+      return new Response(JSON.stringify({
+        url: session.url
+      }), {
+        headers: {
+          ...corsHeaders,
+          'Content-Type': 'application/json'
+        },
+        status: 200
+      });
+    }
+    return new Response(JSON.stringify({
+      error: 'Ação não suportada'
+    }), {
+      headers: {
+        ...corsHeaders,
+        'Content-Type': 'application/json'
+      },
+      status: 400
+    });
+  } catch (error) {
+    return new Response(JSON.stringify({
+      error: error.message
+    }), {
+      headers: {
+        ...corsHeaders,
+        'Content-Type': 'application/json'
+      },
+      status: 400
+    });
+  }
+});

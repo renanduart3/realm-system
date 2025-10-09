@@ -13,6 +13,7 @@ import useSubscriptionFeatures from '../hooks/useSubscriptionFeatures';
 import { stripeService } from '../services/payment/StripeService';
 import { supabaseService } from '../services/supabaseService';
 import { v4 as uuidv4 } from 'uuid';
+import { formatCurrency } from '../utils/formatters';
 
 type SubscriptionStatus = 'active' | 'canceled' | 'past_due' | 'incomplete' | 'free' | 'none' | null;
 
@@ -30,61 +31,55 @@ const tabs: TabItem[] = [
 
 const Settings = () => {
   const [activeTab, setActiveTab] = useState('organization');
-  const [isSaving, setIsSaving] = useState(false);
   const [isSyncing, setIsSyncing] = useState(false);
   const [syncMessage, setSyncMessage] = useState<{ type: 'success' | 'error', text: string } | null>(null);
   const [isResetDialogOpen, setIsResetDialogOpen] = useState(false);
-  const [isAnnual, setIsAnnual] = useState(false);
   const [earlyUsersCount] = useState(27);
   const [isResetting, setIsResetting] = useState(false);
   const [isEditMode, setIsEditMode] = useState(false);
   const [stripePlans, setStripePlans] = useState<any[]>([]);
-  const [isLoadingPlans, setIsLoadingPlans] = useState(false);
+  const [isLoadingPlans, setIsLoadingPlans] = useState(true); // CORREÇÃO: Iniciar como true
 
   const [config, setConfig] = useState<Partial<OrganizationSetup>>({});
   const [isSavingConfig, setIsSavingConfig] = useState(false);
   const [isCreatingSubscription, setIsCreatingSubscription] = useState(false);
   const { showToast } = useToast();
-  const { 
-    user, 
-    isAuthenticated, 
+  const {
+    user,
+    isAuthenticated,
     isPremium,
     planName,
-    subscriptionStatus 
-  } = useAuth() as { 
-    user: any; 
-    isAuthenticated: boolean; 
-    isPremium: boolean; 
-    planName: string; 
+    subscriptionStatus
+  } = useAuth() as {
+    user: any;
+    isAuthenticated: boolean;
+    isPremium: boolean;
+    planName: string;
     subscriptionStatus: SubscriptionStatus;
   };
   const navigate = useNavigate();
   const { canUseCloudBackup, isLoading: isLoadingFeatures } = useSubscriptionFeatures();
 
-  const premiumPlan = appConfig.subscription.plans.premium;
-  const currentPrice = isAnnual ? premiumPlan.price.annual : premiumPlan.price.monthly;
-  const discountedPrice = premiumPlan.earlyBirdDiscount?.enabled 
-    ? currentPrice * (1 - premiumPlan.earlyBirdDiscount.discountPercentage / 100)
-    : currentPrice;
-
   const isCurrentlyPremium = isPremium && subscriptionStatus === 'active';
 
   useEffect(() => {
     loadConfig();
-  }, []);
-
-  useEffect(() => {
     loadPlansFromStripe();
   }, []);
+
 
   const loadConfig = async () => {
     const currentConfig = await systemConfigService.getConfig();
     if (currentConfig) {
-      // Migrar chave PIX antiga para o novo formato
+      // CORREÇÃO: Lógica de migração da chave PIX antiga (pix_key) para o novo formato (pix_keys)
+      // @ts-ignore - Acessando uma propriedade potencialmente inexistente para migração
       if (currentConfig.pix_key && !currentConfig.pix_keys) {
+        // @ts-ignore
         const migratedPixKey = {
           id: uuidv4(),
+          // @ts-ignore
           type: currentConfig.pix_key.type,
+          // @ts-ignore
           key: currentConfig.pix_key.key,
           description: 'Chave PIX Principal',
           bank_name: '',
@@ -92,9 +87,9 @@ const Settings = () => {
         };
         
         currentConfig.pix_keys = [migratedPixKey];
+        // @ts-ignore
         delete currentConfig.pix_key;
         
-        // Salvar a configuração migrada
         await systemConfigService.saveConfig(currentConfig);
       }
       
@@ -105,65 +100,20 @@ const Settings = () => {
   const loadPlansFromStripe = async () => {
     setIsLoadingPlans(true);
     try {
-      const { data: { session } } = await supabaseService.auth.getSession();
-      
-      if (!session) {
-        throw new Error('Usuário não está autenticado');
-      }
-
-      const { data, error } = await supabaseService.functions.invoke('check-premium-subscription', {
-        headers: {
-          Authorization: `Bearer ${session.access_token}`
-        }
-      });
+      const { data, error } = await supabaseService.functions.invoke('get-stripe-plans');
 
       if (error) {
         throw error;
       }
+      console.log('Plans from Stripe:', data);
+      setStripePlans(data || []); 
 
-      // Transformar os dados recebidos para o formato esperado pelo componente
-      const transformedData = [{
-        id: 'premium',
-        nickname: 'Premium',
-        product: {
-          name: 'Premium',
-          description: 'Plano Premium com todos os recursos'
-        },
-        currency: 'BRL',
-        unit_amount: data.type === 'monthly' ? 4990 : 47900, // R$ 49,90 ou R$ 479,00
-        recurring: {
-          interval: data.type === 'monthly' ? 'month' : 'year'
-        },
-        active: data.active
-      }];
-
-      console.log('Plans from Stripe:', transformedData);
-      setStripePlans(transformedData);
     } catch (error) {
       console.error('Error fetching plans from Stripe:', error);
-      showToast(`Erro ao carregar planos do Stripe: ${error}`, 'error');
+      const errorMessage = error instanceof Error ? error.message : 'Ocorreu um erro desconhecido.';
+      showToast(`Erro ao carregar os planos: ${errorMessage}`, 'error');
     } finally {
       setIsLoadingPlans(false);
-    }
-  };
-
-  const fetchPlansFromStripe = async () => {
-    try {
-      const response = await fetch('https://ndjiinwbcsccutkfkprb.supabase.co/functions/v1/realm-stripe-function', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          action: 'get-plans'
-        }),
-      });
-      const data = await response.json();
-      console.log('Plans from Stripe:', data);
-      return data;
-    } catch (error) {
-      console.error('Error fetching plans from Stripe:', error);
-      return null;
     }
   };
 
@@ -213,7 +163,7 @@ const Settings = () => {
   const updatePixKey = (id: string, field: string, value: string) => {
     setConfig(prev => ({
       ...prev,
-      pix_keys: prev.pix_keys?.map(pixKey => 
+      pix_keys: prev.pix_keys?.map(pixKey =>
         pixKey.id === id ? { ...pixKey, [field]: value } : pixKey
       ) || []
     }));
@@ -262,19 +212,17 @@ const Settings = () => {
     setIsResetting(true);
 
     try {
-      // Close the database connection before deleting it
       db.close();
       await db.delete();
-      await systemConfigService.initialize(); // Re-initialize to create default config
+      await systemConfigService.initialize(); 
 
       localStorage.clear();
       sessionStorage.clear();
 
       showToast('Sistema resetado com sucesso! Redirecionando para a configuração...', 'success');
 
-      // Navigate to setup page
       navigate('/setup', { replace: true });
-      window.location.reload(); // Force a reload to clear all state
+      window.location.reload(); 
 
     } catch (error) {
       console.error('Erro ao resetar sistema:', error);
@@ -298,36 +246,30 @@ const Settings = () => {
     loadConfig();
   };
 
-  const handleSubscribe = async (plan: 'free' | 'premium') => {
+  const handleSubscribe = async (priceId: string) => {
     if (!isAuthenticated || !user?.email) {
-      showToast('Por favor, faça login para assinar o plano Premium.', 'error');
+      showToast('Por favor, faça login para assinar.', 'error');
       navigate('/login');
       return;
     }
 
-    if (plan === 'premium') {
-      try {
-        setIsCreatingSubscription(true);
-        const stripeSession = await stripeService.createSubscription({
-          planId: 'premium',
-          interval: isAnnual ? 'year' : 'month',
-          email: user.email,
-          paymentMethod: 'card',
-        });
+    try {
+      setIsCreatingSubscription(true);
+      const stripeSession = await stripeService.createSubscription({
+        priceId: priceId,
+        email: user.email,
+      });
 
-        if (stripeSession?.url) {
-          window.location.href = stripeSession.url;
-        } else {
-          showToast('Não foi possível iniciar o processo de assinatura. Tente novamente.', 'error');
-        }
-      } catch (error: any) {
-        console.error('Error creating Stripe subscription session:', error);
-        showToast(error.message || 'Erro ao iniciar assinatura. Tente novamente mais tarde.', 'error');
-      } finally {
-        setIsCreatingSubscription(false);
+      if (stripeSession?.url) {
+        window.location.href = stripeSession.url;
+      } else {
+        showToast('Não foi possível iniciar o processo de assinatura. Tente novamente.', 'error');
       }
-    } else {
-      showToast('Você já está no plano gratuito.', 'info');
+    } catch (error: any) {
+      console.error('Error creating Stripe subscription session:', error);
+      showToast(error.message || 'Erro ao iniciar assinatura. Tente novamente mais tarde.', 'error');
+    } finally {
+      setIsCreatingSubscription(false);
     }
   };
 
@@ -611,7 +553,7 @@ const Settings = () => {
                       disabled={!isEditMode}
                     >
                       <option value="random">Chave Aleatória</option>
-                      <option value="cpf">CPF</option>
+                      <option value="cnpj">CNPJ</option>
                       <option value="email">E-mail</option>
                       <option value="phone">Telefone</option>
                     </select>
@@ -737,16 +679,21 @@ const Settings = () => {
   );
 
   const renderSubscriptionContent = () => {
-    if (isLoadingFeatures) {
+    // CORREÇÃO: Usa apenas isLoadingPlans para mostrar o spinner de planos
+    if (isLoadingPlans) {
       return (
         <div className="flex justify-center items-center py-12">
           <Loader2 className="w-8 h-8 animate-spin text-blue-600" />
+          <p className="ml-4 text-gray-600 dark:text-gray-400">Carregando informações dos planos...</p>
         </div>
       );
     }
-
-    const isPotentiallyEarlyBird = ((subscriptionStatus === 'active' && planName === 'free')) && earlyUsersCount < 50;
-
+  
+    const isPotentiallyEarlyBird = (subscriptionStatus === 'active' && planName === 'free') && earlyUsersCount < 50;
+  
+    const monthlyPlan = stripePlans.find(p => p.interval === 'month');
+    const annualPlan = stripePlans.find(p => p.interval === 'year');
+  
     return (
       <>
         {isPotentiallyEarlyBird && (
@@ -768,7 +715,7 @@ const Settings = () => {
             </div>
           </div>
         )}
-
+  
         {subscriptionStatus === 'active' && (
           <div className={`mb-8 rounded-lg p-6 ${isCurrentlyPremium ? 'bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800' : 'bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800'}`}>
             <div className="flex items-center justify-between">
@@ -778,7 +725,7 @@ const Settings = () => {
                 </h3>
               </div>
               <button
-                onClick={() => navigate('/subscription-status')}
+                onClick={() => navigate('/subscription')}
                 className={`px-4 py-2 text-sm font-medium rounded-lg transition-colors
                   ${isCurrentlyPremium 
                     ? 'text-green-700 dark:text-green-400 border border-green-300 dark:border-green-700 hover:bg-green-100 dark:hover:bg-green-900/30' 
@@ -789,140 +736,63 @@ const Settings = () => {
             </div>
           </div>
         )}
-
+  
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
-          <div className="border dark:border-gray-700 rounded-lg p-6">
-            <div className="flex items-center justify-between mb-4">
-              <h3 className="text-lg font-semibold text-gray-900 dark:text-white">
-                Plano Gratuito
-              </h3>
-              <div className="text-lg font-bold text-green-600">Sempre gratuito</div>
-            </div>
-
-            <div className="mb-6">
-              <div className="text-3xl font-bold">R$ 0</div>
-              <div className="text-gray-600 dark:text-gray-400">Sempre gratuito</div>
-            </div>
-
-            <ul className="space-y-4 mb-8">
-              <li className="flex items-center gap-3">
-                <Check className="w-5 h-5 text-green-600" />
-                <span>Gestão básica de negócios</span>
-              </li>
-              <li className="flex items-center gap-3 text-gray-500">
-                <X className="w-5 h-5 text-red-600" />
-                <span>Sem backup na nuvem</span>
-              </li>
-              <li className="flex items-center gap-3 text-gray-500">
-                <X className="w-5 h-5 text-red-600" />
-                <span>Sem inteligência de negócios</span>
-              </li>
-              <li className="flex items-center gap-3 text-gray-500">
-                <X className="w-5 h-5 text-red-600" />
-                <span>Sem recursos de agendamento</span>
-              </li>
+          {/* Plano Gratuito (estático) */}
+          <div className="border dark:border-gray-700 rounded-lg p-6 flex flex-col">
+            <h3 className="text-lg font-semibold text-gray-900 dark:text-white">Plano Gratuito</h3>
+            <p className="text-2xl font-bold mt-2">R$ 0</p>
+            <p className="text-gray-500 dark:text-gray-400 mb-6">Sempre gratuito</p>
+            <ul className="space-y-2 mb-8 text-sm flex-grow">
+              <li className="flex items-center"><Check className="w-4 h-4 mr-2 text-green-500"/>Gestão básica de negócios</li>
+              <li className="flex items-center text-gray-400"><X className="w-4 h-4 mr-2 text-red-500"/>Sem backup na nuvem</li>
+              <li className="flex items-center text-gray-400"><X className="w-4 h-4 mr-2 text-red-500"/>Sem inteligência de negócios</li>
             </ul>
-
             <button
-              onClick={() => handleSubscribe('free')}
               disabled={subscriptionStatus === 'active' && planName === 'free'}
               className="w-full py-2 px-4 border-2 border-gray-300 dark:border-gray-600 rounded-lg font-medium hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
             >
               {subscriptionStatus === 'active' && planName === 'free' ? 'Plano Atual' : 'Selecionar Gratuito'}
             </button>
           </div>
-
-          <div className="bg-gradient-to-b from-blue-600 to-purple-600 rounded-xl shadow-lg p-[2px]">
-            <div className="bg-white dark:bg-gray-900 rounded-[calc(0.75rem-2px)] p-8 h-full">
-              <div className="mb-6">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <h2 className="text-2xl font-bold mb-2">Premium</h2>
-                    <p className="text-gray-600 dark:text-gray-400">
-                      Recursos completos para negócios em crescimento
-                    </p>
-                  </div>
-                  <div className="bg-blue-100 dark:bg-blue-900/30 p-2 rounded-lg">
-                    <Star className="w-6 h-6 text-blue-600 dark:text-blue-400" />
-                  </div>
-                </div>
+  
+          {/* Planos Premium (dinâmicos) */}
+          <div className="grid grid-cols-1 gap-6">
+            {monthlyPlan && (
+              <div className="border dark:border-gray-700 rounded-lg p-6 flex flex-col">
+                <h3 className="text-lg font-semibold text-gray-900 dark:text-white">{monthlyPlan.name} Mensal</h3>
+                <p className="text-2xl font-bold mt-2">{formatCurrency(monthlyPlan.price)}<span className="text-sm font-normal text-gray-500">/mês</span></p>
+                <ul className="space-y-2 my-6 text-sm flex-grow">
+                  {appConfig.subscription.plans.premium.features.map(f => <li key={f} className="flex items-center"><Check className="w-4 h-4 mr-2 text-green-500"/>{f}</li>)}
+                </ul>
+                <button
+                  onClick={() => handleSubscribe(monthlyPlan.priceId)}
+                  disabled={isCurrentlyPremium || isCreatingSubscription}
+                  className="w-full py-2 px-4 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-medium transition-colors flex items-center justify-center gap-2 disabled:bg-blue-400"
+                >
+                  {isCreatingSubscription ? <Loader2 className="w-5 h-5 animate-spin"/> : <CreditCard className="w-5 h-5" />}
+                  {isCurrentlyPremium ? 'Plano Atual' : 'Assinar Mensal'}
+                </button>
               </div>
-
-              <div className="flex justify-center mb-6">
-                <div className="bg-gray-100 dark:bg-gray-700 p-1 rounded-lg inline-flex items-center">
-                  <button
-                    onClick={() => setIsAnnual(false)}
-                    className={`px-4 py-2 rounded-lg transition-colors ${
-                      !isAnnual 
-                        ? 'bg-white dark:bg-gray-600 shadow-sm' 
-                        : 'text-gray-600 dark:text-gray-400'
-                    }`}
-                  >
-                    Mensal
-                  </button>
-                  <button
-                    onClick={() => setIsAnnual(true)}
-                    className={`px-4 py-2 rounded-lg transition-colors ${
-                      isAnnual 
-                        ? 'bg-white dark:bg-gray-600 shadow-sm' 
-                        : 'text-gray-600 dark:text-gray-400'
-                    }`}
-                  >
-                    Anual
-                    <span className="ml-1 text-xs text-green-600 dark:text-green-400">
-                      Economize 20%
-                    </span>
-                  </button>
-                </div>
+            )}
+            {annualPlan && (
+              <div className="border-2 border-purple-500 rounded-lg p-6 flex flex-col relative">
+                <div className="absolute top-0 -translate-y-1/2 left-1/2 -translate-x-1/2 px-3 py-1 bg-purple-500 text-white text-xs font-bold rounded-full">MAIS POPULAR</div>
+                <h3 className="text-lg font-semibold text-gray-900 dark:text-white">{annualPlan.name} Anual</h3>
+                <p className="text-2xl font-bold mt-2">{formatCurrency(annualPlan.price)}<span className="text-sm font-normal text-gray-500">/ano</span></p>
+                <ul className="space-y-2 my-6 text-sm flex-grow">
+                  {appConfig.subscription.plans.premium.features.map(f => <li key={f} className="flex items-center"><Check className="w-4 h-4 mr-2 text-green-500"/>{f}</li>)}
+                </ul>
+                <button
+                  onClick={() => handleSubscribe(annualPlan.priceId)}
+                  disabled={isCurrentlyPremium || isCreatingSubscription}
+                  className="w-full py-2 px-4 bg-purple-600 hover:bg-purple-700 text-white rounded-lg font-medium transition-colors flex items-center justify-center gap-2 disabled:bg-purple-400"
+                >
+                  {isCreatingSubscription ? <Loader2 className="w-5 h-5 animate-spin"/> : <CreditCard className="w-5 h-5" />}
+                  {isCurrentlyPremium ? 'Plano Atual' : 'Assinar Anual'}
+                </button>
               </div>
-
-              <div className="mb-6">
-                <div className="flex items-baseline gap-2">
-                  <div className="text-3xl font-bold">
-                    R$ {discountedPrice.toFixed(2)}
-                  </div>
-                  <div className="text-gray-600 dark:text-gray-400">
-                    /{isAnnual ? 'ano' : 'mês'}
-                  </div>
-                </div>
-                {isPotentiallyEarlyBird && (
-                  <div className="flex items-center gap-1 text-green-600 dark:text-green-400 text-sm mt-2">
-                    <AlertTriangle className="w-4 h-4" />
-                    <span>Preço early access - Garanta esta taxa!</span>
-                  </div>
-                )}
-              </div>
-
-              <ul className="space-y-4 mb-8">
-                {premiumPlan.features.map((feature, index) => (
-                  <li key={index} className="flex items-center gap-3">
-                    <Check className="w-5 h-5 text-green-600" />
-                    <span>{feature}</span>
-                  </li>
-                ))}
-              </ul>
-
-              <button
-                onClick={() => handleSubscribe('premium')}
-                className="w-full py-2 px-4 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-medium transition-colors flex items-center justify-center gap-2"
-                disabled={isCurrentlyPremium || isCreatingSubscription}
-              >
-                {isCreatingSubscription ? <Loader2 className="w-5 h-5 mr-2 animate-spin" /> : <CreditCard className="w-5 h-5" />}
-                {isCurrentlyPremium ? 'Plano Premium Atual' : 'Assinar Premium'}
-              </button>
-            </div>
-          </div>
-        </div>
-
-        <div className="mt-8 p-4 bg-gray-100 dark:bg-gray-800 rounded-lg">
-          <h3 className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Informações de Debug:</h3>
-          <div className="grid grid-cols-2 md:grid-cols-3 gap-2 text-xs text-gray-600 dark:text-gray-400">
-            <div>isAuthenticated: {String(isAuthenticated)}</div>
-            <div>isPremium: {String(isPremium)}</div>
-            <div>subscriptionStatus: {subscriptionStatus || 'null'}</div>
-            <div>planName: {planName || 'null'}</div>
-            <div>isCurrentlyPremium: {String(isCurrentlyPremium)}</div>
-            <div>user: {user ? 'exists' : 'null'}</div>
+            )}
           </div>
         </div>
       </>

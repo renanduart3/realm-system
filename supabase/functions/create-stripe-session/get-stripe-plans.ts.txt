@@ -1,0 +1,67 @@
+import { serve } from 'https://deno.land/std@0.224.0/http/server.ts';
+import Stripe from 'https://esm.sh/stripe@v15.8.0?target=deno';
+// Inicializa o cliente Stripe com a chave secreta das variáveis de ambiente.
+const stripe = new Stripe(Deno.env.get('STRIPE_SECRET_KEY'), {
+  apiVersion: '2024-04-10',
+  httpClient: Stripe.createFetchHttpClient()
+});
+// Headers CORS para permitir que seu app no navegador acesse esta função.
+const corsHeaders = {
+  'Access-Control-Allow-Origin': '*',
+  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type'
+};
+serve(async (req)=>{
+  // Responde a requisições OPTIONS (preflight) do navegador.
+  if (req.method === 'OPTIONS') {
+    return new Response('ok', {
+      headers: corsHeaders
+    });
+  }
+  try {
+    // MELHORIA: Busca preços apenas para o ID do produto específico.
+    const prices = await stripe.prices.list({
+      product: 'prod_SP4mv856MaE5C8',
+      active: true,
+      type: 'recurring',
+      expand: [
+        'data.product'
+      ]
+    });
+    // Mapeia os preços para o formato que o frontend espera.
+    const plans = prices.data.map((price)=>{
+      // O 'product' agora é um objeto expandido.
+      const product = price.product;
+      if (typeof product === 'string' || !product) {
+        return null;
+      }
+      return {
+        id: product.id,
+        name: product.name,
+        description: product.description,
+        price: (price.unit_amount || 0) / 100,
+        currency: price.currency,
+        interval: price.recurring?.interval,
+        priceId: price.id // ID do Preço
+      };
+    }).filter(Boolean); // Filtra quaisquer resultados nulos
+    return new Response(JSON.stringify(plans), {
+      headers: {
+        ...corsHeaders,
+        'Content-Type': 'application/json'
+      },
+      status: 200
+    });
+  } catch (error) {
+    // Em caso de erro, retorna uma mensagem clara.
+    console.error("Stripe function error:", error);
+    return new Response(JSON.stringify({
+      error: error.message
+    }), {
+      headers: {
+        ...corsHeaders,
+        'Content-Type': 'application/json'
+      },
+      status: 500
+    });
+  }
+});

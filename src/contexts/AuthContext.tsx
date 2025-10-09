@@ -1,7 +1,6 @@
 import React, { createContext, useState, useContext, ReactNode, useEffect } from 'react';
 import { User as SupabaseUser, AuthChangeEvent, Session as SupabaseSession } from '@supabase/supabase-js';
 import { supabaseService } from '../services/supabaseService'; // Import the supabase client
-import { appConfig } from '../config/app.config'; // Keep for isDevelopment, though login logic changes
 import { systemConfigService } from '../services/systemConfigService'; // Keep for organizationType for now
 
 // Define the shape of the user object you want to expose from the context.
@@ -14,7 +13,6 @@ interface AuthContextProps {
   session: SupabaseSession | null; // Expose session if needed
   organizationType: 'profit' | 'nonprofit'; // Keep this for now
   loginWithGoogle: () => Promise<void>;
-  // signUpWithEmailPassword and signInWithEmailPassword removed
   logout: () => Promise<void>;
   updateOrganizationType: (type: 'profit' | 'nonprofit') => void; // Keep this for now
   // New subscription-related props
@@ -59,50 +57,17 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 
     initializeOrgType();
 
-    // Check initial session and try to refresh if needed
-    const checkInitialSession = async () => {
-      const { data: { session: initialSession } } = await supabaseService.auth.getSession();
-      
-      if (!initialSession) {
-        // Tenta recuperar a sessão usando o refresh token
-        const { data: { session: refreshedSession }, error } = await supabaseService.auth.refreshSession();
-        
-        if (error) {
-          console.error('Erro ao tentar refresh da sessão:', error);
-        } else if (refreshedSession) {
-          setSession(refreshedSession);
-          setUser(refreshedSession.user);
-          setIsAuthenticated(true);
-        }
-      } else {
-        setSession(initialSession);
-        setUser(initialSession.user);
-        setIsAuthenticated(true);
-      }
-      setIsInitialized(true);
-    };
-
-    checkInitialSession();
+    // CORREÇÃO: A função checkInitialSession foi removida.
+    // O onAuthStateChange é a única fonte de verdade e lida com a sessão inicial automaticamente.
 
     // Supabase auth state change listener
     const { data: authListener } = supabaseService.auth.onAuthStateChange(
       async (event: AuthChangeEvent, session: SupabaseSession | null) => {
         console.log('Supabase Auth Event:', event, session);
         
-        if (event === 'SIGNED_OUT') {
-          // Limpa o estado local
-          setSession(null);
-          setUser(null);
-          setIsAuthenticated(false);
-          setSubscriptionStatus(null);
-          setPlanName(null);
-          setIsPremium(false);
-          setPromptPlanSelection(false);
-        } else {
-          setSession(session);
-          setUser(session?.user ?? null);
-          setIsAuthenticated(!!session?.user);
-        }
+        setSession(session);
+        setUser(session?.user ?? null);
+        setIsAuthenticated(!!session?.user);
 
         if (event === 'SIGNED_IN' && session?.user) {
           try {
@@ -155,18 +120,15 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
               }
             } else { // User metadata already exists
               console.log('User metadata already exists for', session.user.email);
-              // Proceed to fetch subscription for existing user (logic below will handle it)
             }
           } catch (e) {
             console.error('Exception during metadata check/creation:', e);
-            // Fallback if metadata check fails - assume no premium, no prompt
             setSubscriptionStatus(null);
             setPlanName(null);
             setIsPremium(false);
             setPromptPlanSelection(false);
           }
 
-          // Fetch subscription status (this will run for both new users after metadata/default sub creation, and existing users)
           try {
             console.log('Fetching subscription for user:', session.user.id);
             const { data: sub, error: subError } = await supabaseService
@@ -187,34 +149,24 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
               setPlanName(sub.plan_name);
               const isActivePremium = sub.status === 'active' && sub.plan_name === 'premium';
               
-              // Verify premium status using Supabase function
               if (isActivePremium) {
                 try {
                   console.log('Verifying premium subscription with Supabase function...');
-                  const response = await fetch('https://ndjiinwbcsccutkfkprb.supabase.co/functions/v1/check-premium-subscription', {
-                    method: 'POST',
-                    headers: {
-                      'Content-Type': 'application/json',
-                      'Authorization': `Bearer ${session.access_token}`,
-                    },
-                    body: JSON.stringify({
-                      user_id: session.user.id
-                    }),
-                  });
+                  const { data, error } = await supabaseService.functions.invoke('check-premium-subscription');
                   
-                  const verificationResult = await response.json();
-                  console.log('Premium verification result:', verificationResult);
+                  if (error) throw error;
+
+                  console.log('Premium verification result:', data);
                   
-                  if (response.ok && verificationResult.isPremium) {
+                  if (data.isPremium) {
                     setIsPremium(true);
                     console.log('Premium subscription verified successfully');
                   } else {
-                    console.warn('Premium verification failed:', verificationResult);
+                    console.warn('Premium verification failed:', data);
                     setIsPremium(false);
                   }
                 } catch (verifyError) {
                   console.error('Error verifying premium subscription:', verifyError);
-                  // Fallback to local database check if verification fails
                   setIsPremium(isActivePremium);
                 }
               } else {
@@ -223,8 +175,6 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
               
               setPromptPlanSelection(sub.status === 'inactive'); // Prompt if inactive
             } else {
-              // This 'else' block should ideally not be reached if a new user always gets a default 'free'/'active' sub created above.
-              // However, if it IS reached (e.g. metadata existed, but sub record was manually deleted or creation failed silently earlier)
               console.log('No subscription record found for user (after metadata check). This might indicate an issue if user is new.');
               setSubscriptionStatus('inactive'); 
               setPlanName('free'); 
@@ -246,7 +196,6 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
           setPromptPlanSelection(false); // Reset prompt on sign out
         }
         
-        // If it's the initial session load, mark as initialized
         if (!isInitialized) {
           setIsInitialized(true);
         }
@@ -258,7 +207,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         authListener.subscription.unsubscribe();
       }
     };
-  }, [isInitialized]); // Added isInitialized to dependencies
+  }, [isInitialized]);
 
   const loginWithGoogle = async () => {
     try {
@@ -285,11 +234,8 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     }
   };
 
-  // signUpWithEmailPassword and signInWithEmailPassword functions removed
-
   const logout = async () => {
     try {
-      // Clear local state immediately
       setUser(null);
       setSession(null);
       setIsAuthenticated(false);
@@ -298,7 +244,6 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       setIsPremium(false);
       setPromptPlanSelection(false);
       
-      // Sign out from Supabase
       const { error } = await supabaseService.auth.signOut();
       if (error) {
         console.error('Error logging out:', error);
@@ -308,7 +253,6 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       console.log('Successfully logged out');
     } catch (error) {
       console.error('Error during logout:', error);
-      // Even if there's an error, we want to clear local state
       setUser(null);
       setSession(null);
       setIsAuthenticated(false);
@@ -319,16 +263,14 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     }
   };
   
-  // Keep existing organization type update logic
   const updateOrganizationType = async (type: 'profit' | 'nonprofit') => {
     setOrganizationType(type);
-    localStorage.setItem('organization_type', type); // Keep local storage for immediate UI, sync with DB if needed
+    localStorage.setItem('organization_type', type);
     try {
        // await systemConfigService.updateSheetId(type);
     } catch (error) {
         console.error("Error updating organization type in DB", error);
     }
-    // window.location.reload(); // Consider if reload is still needed or if UI can react to state change
   };
 
   const refreshSubscription = async () => {
@@ -360,9 +302,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     }
   };
 
-  // Render a loading state or null until Supabase has checked the session
   if (!isInitialized) {
-    // You can return a global loading spinner here if you prefer
     return <div>Loading authentication status...</div>; 
   }
 
@@ -372,16 +312,13 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       user,
       session,
       loginWithGoogle,
-      // signUpWithEmailPassword, // Removed
-      // signInWithEmailPassword, // Removed
       logout,
-      organizationType, // Keep
-      updateOrganizationType, // Keep
-      // Add new subscription values to provider
+      organizationType,
+      updateOrganizationType,
       subscriptionStatus,
       planName,
       isPremium,
-      promptPlanSelection, // Added
+      promptPlanSelection,
       refreshSubscription
     }}>
       {children}

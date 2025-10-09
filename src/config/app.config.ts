@@ -16,40 +16,43 @@ interface SubscriptionPlan {
 
 export const appConfig = {
   isDevelopment: true,
-  requireAuth: true, 
+  requireAuth: true,
   googleAuthEnabled: true,
   useMockData: false,
-  
+
   stripe: {
-    publishableKey: 'pk_test_51JDMMzJOXSa4N9iA96ooundiDvGr6JRSIDupuaBDaNxTcK3vx5bPBgXFGWZ3W0M3WQBvw1tVoy8iCrhaCfm2jSgE00L4lSd7xC',
-    supportedPaymentMethods: ['card'],
+    publishableKey:
+      "pk_test_51JDMMzJOXSa4N9iA96ooundiDvGr6JRSIDupuaBDaNxTcK3vx5bPBgXFGWZ3W0M3WQBvw1tVoy8iCrhaCfm2jSgE00L4lSd7xC",
+    supportedPaymentMethods: ["card"],
   },
 
   subscription: {
     plans: {
       premium: {
-        id: 'premium',
-        name: 'Premium',
-        description: 'Acesso completo a todas as funcionalidades',
+        id: "premium",
+        name: "Premium",
+        description: "Acesso completo a todas as funcionalidades",
         price: {
-          monthly: 49.90,
-          annual: 479.00  // ~20% discount for annual
+          monthly: 19.9,
+          annual: 190.0,
+          monthlyPriceId: "price_1RUGeIJOXSa4N9iAgmMnkdng", // <--- Cole o ID do preço mensal
+          annualPriceId: "price_1RUGdDJOXSa4N9iA1Ng10apM", // <--- Cole o ID do preço anual
         },
         features: [
-          'Gestão completa de vendas',
-          'Relatórios avançados',
-          'Gestão de estoque',
-          'Gestão de clientes',
-          'Suporte prioritário',
-          'Backup automático',
-          'Exportação de dados'
+          "Gestão completa de vendas",
+          "Relatórios avançados",
+          "Gestão de estoque",
+          "Gestão de clientes",
+          "Suporte prioritário",
+          "Backup automático",
+          "Exportação de dados",
         ],
         earlyBirdDiscount: {
           enabled: true,
           maxUsers: 50,
-          discountPercentage: 30
-        }
-      } as SubscriptionPlan
-    }
-  }
+          discountPercentage: 30,
+        },
+      } as SubscriptionPlan,
+    },
+  },
 };
