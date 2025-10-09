@@ -8,7 +8,8 @@ export const clientService = {
     email: string,
     phone: string,
     document: string,
-    address?: string
+    address?: string,
+    isWhatsApp?: boolean
   ): Promise<Client | null> {
     try {
       const newClient: Client = {
@@ -18,6 +19,7 @@ export const clientService = {
         phone,
         document,
         address,
+        isWhatsApp,
         created_at: new Date().toISOString(),
         updated_at: new Date().toISOString()
       };

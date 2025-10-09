@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Plus, Pencil, Trash2, Search } from 'lucide-react';
+import { Plus, Pencil, Trash2, Search, MessageCircle } from 'lucide-react';
 import { personService } from '../services/personService';
 import { clientService } from '../services/clientService';
 import { Person, Client } from '../model/types';
@@ -21,7 +21,8 @@ export default function PersonClientManager() {
     address: '',
     familyIncome: '',
     socialPrograms: [] as string[],
-    notes: ''
+    notes: '',
+    isWhatsApp: false
   });
 
   const isNonProfit = organizationType === 'nonprofit';
@@ -72,7 +73,8 @@ export default function PersonClientManager() {
             formData.email,
             formData.phone,
             formData.document,
-            formData.address
+            formData.address,
+            formData.isWhatsApp
           );
         }
       }
@@ -95,7 +97,8 @@ export default function PersonClientManager() {
       address: entity.address || '',
       familyIncome: (entity as Person).familyIncome?.toString() || '',
       socialPrograms: (entity as Person).socialPrograms || [],
-      notes: (entity as Person).notes || ''
+      notes: (entity as Person).notes || '',
+      isWhatsApp: (entity as Client).isWhatsApp || false
     });
     setIsModalOpen(true);
   };
@@ -120,7 +123,8 @@ export default function PersonClientManager() {
       address: '',
       familyIncome: '',
       socialPrograms: [],
-      notes: ''
+      notes: '',
+      isWhatsApp: false
     });
   };
 
@@ -186,6 +190,11 @@ export default function PersonClientManager() {
               <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
                 Documento
               </th>
+              {!isNonProfit && (
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
+                  Telefone
+                </th>
+              )}
               {isNonProfit && (
                 
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
@@ -207,6 +216,24 @@ export default function PersonClientManager() {
                 <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-300">
                   {entity.document}
                 </td>
+                {!isNonProfit && (
+                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-300">
+                    <div className="flex items-center space-x-2">
+                      <span>{entity.phone}</span>
+                      {(entity as Client).isWhatsApp && (
+                        <a
+                          href={`https://web.whatsapp.com/send?phone=${entity.phone.replace(/\D/g, '')}`}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="text-green-600 hover:text-green-800 dark:text-green-400 dark:hover:text-green-300 transition-colors duration-200"
+                          title="Abrir no WhatsApp"
+                        >
+                          <MessageCircle className="h-4 w-4" />
+                        </a>
+                      )}
+                    </div>
+                  </td>
+                )}
                 {isNonProfit && (
                   
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-300">
@@ -276,6 +303,20 @@ export default function PersonClientManager() {
                   className="form-input"
                 />
               </div>
+              {!isNonProfit && (
+                <div className="flex items-center">
+                  <input
+                    type="checkbox"
+                    id="isWhatsApp"
+                    checked={formData.isWhatsApp}
+                    onChange={(e) => setFormData({ ...formData, isWhatsApp: e.target.checked })}
+                    className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
+                  />
+                  <label htmlFor="isWhatsApp" className="ml-2 block text-sm text-gray-900 dark:text-gray-300">
+                    Este telefone é WhatsApp
+                  </label>
+                </div>
+              )}
               <div>
                 <label className="form-label">
                   Documento

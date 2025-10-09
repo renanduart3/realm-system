@@ -11,9 +11,10 @@ interface ProductListProps {
   searchTerm?: string;
   onEdit?: (product: ProductService) => void;
   onProductUpdated?: () => void;
+  refreshTrigger?: number;
 }
 
-const ProductList = ({ isManager, searchTerm = '', onEdit, onProductUpdated }: ProductListProps) => {
+const ProductList = ({ isManager, searchTerm = '', onEdit, onProductUpdated, refreshTrigger }: ProductListProps) => {
   const [products, setProducts] = useState<ProductService[] | null>(null);
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
   const [productToDelete, setProductToDelete] = useState<ProductService | null>(null);
@@ -22,6 +23,12 @@ const ProductList = ({ isManager, searchTerm = '', onEdit, onProductUpdated }: P
   useEffect(() => {
     loadProducts();
   }, []);
+
+  useEffect(() => {
+    if (refreshTrigger && refreshTrigger > 0) {
+      loadProducts();
+    }
+  }, [refreshTrigger]);
 
   const loadProducts = async () => {
     try {

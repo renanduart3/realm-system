@@ -119,6 +119,7 @@ export interface Client extends BaseEntity {
     address?: string;
     tags?: string[];
     notes?: string;
+    isWhatsApp?: boolean;
 }
 
 export interface Person extends BaseEntity {
@@ -238,10 +239,14 @@ export interface OrganizationSetup extends SystemConfig {
     };
     website?: string;
     cnpj?: string;
-    pix_key?: {
+    pix_keys?: {
+        id: string;
         type: 'cnpj' | 'email' | 'phone' | 'random';
         key: string;
-    };
+        description: string;
+        bank_name?: string;
+        beneficiary_name?: string;
+    }[];
     integrations?: {
         google_connected?: boolean;
         openai_connected?: boolean;

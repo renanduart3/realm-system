@@ -7,7 +7,8 @@ import { formatCurrency } from '../utils/formatters';
 import MonthlyExpensesList from '../components/MonthlyExpensesList';
 import { supabaseService } from '../services/supabaseService';
 import { useAuth } from '../contexts/AuthContext';
-import { ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight } from 'lucide-react';
+import { ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight, Trash2, CheckCircle } from 'lucide-react';
+import PaymentModal from '../components/PaymentModal';
 
 export default function Expenses() {
   const [activeTab, setActiveTab] = useState<'add' | 'monthly'>('add');
@@ -26,6 +27,10 @@ export default function Expenses() {
   const [isLoading, setIsLoading] = useState(false);
   const [currentPage, setCurrentPage] = useState(1);
   const [itemsPerPage] = useState(10);
+  const [isPaymentModalOpen, setIsPaymentModalOpen] = useState(false);
+  const [selectedExpense, setSelectedExpense] = useState<Transaction | null>(null);
+  const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
+  const [expenseToDelete, setExpenseToDelete] = useState<Transaction | null>(null);
 
   const { user } = useAuth();
   const userEmail = user?.email;
@@ -49,6 +54,55 @@ export default function Expenses() {
       showToast(`Expense marked as ${newStatus}`, 'success');
     } else {
       showToast('Failed to update expense status', 'error');
+    }
+  };
+
+  const handlePaymentSubmit = async (amount: number, interest?: number) => {
+    if (!selectedExpense) return;
+
+    try {
+      const result = await transactionService.createPaymentTransaction(
+        selectedExpense.id,
+        amount,
+        interest
+      );
+
+      if (result) {
+        showToast('Payment recorded successfully', 'success');
+        loadRecentExpenses();
+      } else {
+        throw new Error('Failed to record payment');
+      }
+    } catch (error) {
+      showToast(
+        error instanceof Error ? error.message : 'Failed to record payment',
+        'error'
+      );
+    } finally {
+      setIsPaymentModalOpen(false);
+      setSelectedExpense(null);
+    }
+  };
+
+  const handleDeleteExpense = async () => {
+    if (!expenseToDelete) return;
+
+    try {
+      const success = await transactionService.deleteTransaction(expenseToDelete.id);
+      if (success) {
+        showToast('Despesa excluída com sucesso', 'success');
+        loadRecentExpenses();
+      } else {
+        throw new Error('Failed to delete expense');
+      }
+    } catch (error) {
+      showToast(
+        error instanceof Error ? error.message : 'Erro ao excluir despesa',
+        'error'
+      );
+    } finally {
+      setIsDeleteDialogOpen(false);
+      setExpenseToDelete(null);
     }
   };
 
@@ -335,26 +389,33 @@ export default function Expenses() {
                               </span>
                             )}
                           </div>
-                          <button
-                            onClick={() => handlePaymentToggle(expense)}
-                            className={`relative inline-flex h-6 w-11 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 ${
-                              expense.status === 'paid'
-                                ? 'bg-green-500'
-                                : 'bg-gray-200 dark:bg-gray-700'
-                            }`}
-                            role="switch"
-                            aria-checked={expense.status === 'paid'}
-                          >
-                            <span className="sr-only">
-                              {expense.status === 'paid' ? 'Mark as unpaid' : 'Mark as paid'}
-                            </span>
-                            <span
-                              aria-hidden="true"
-                              className={`pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out ${
-                                expense.status === 'paid' ? 'translate-x-5' : 'translate-x-0'
-                              }`}
-                            />
-                          </button>
+                          <div className="flex items-center space-x-2">
+                            <button
+                              onClick={() => {
+                                setExpenseToDelete(expense);
+                                setIsDeleteDialogOpen(true);
+                              }}
+                              className="p-1 text-red-600 hover:text-red-800 dark:text-red-400 dark:hover:text-red-300 hover:bg-red-50 dark:hover:bg-red-900/20 rounded transition-colors duration-200"
+                              title="Excluir despesa"
+                            >
+                              <Trash2 className="h-4 w-4" />
+                            </button>
+                            {expense.status === 'paid' ? (
+                              <div className="flex items-center justify-center p-1">
+                                <CheckCircle className="h-5 w-5 text-green-600 dark:text-green-400" title="Despesa paga" />
+                              </div>
+                            ) : (
+                              <button
+                                onClick={() => {
+                                  setSelectedExpense(expense);
+                                  setIsPaymentModalOpen(true);
+                                }}
+                                className="px-3 py-1 text-xs font-medium text-white bg-green-600 rounded hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-green-500 focus:ring-offset-2"
+                              >
+                                Pagar
+                              </button>
+                            )}
+                          </div>
                         </div>
                       </div>
                     </div>
@@ -412,6 +473,51 @@ export default function Expenses() {
         </>
       ) : (
         <MonthlyExpensesList />
+      )}
+
+      {isPaymentModalOpen && selectedExpense && (
+        <PaymentModal
+          expense={selectedExpense}
+          onClose={() => {
+            setIsPaymentModalOpen(false);
+            setSelectedExpense(null);
+          }}
+          onSubmit={handlePaymentSubmit}
+        />
+      )}
+
+      {/* Dialog de Confirmação para Exclusão */}
+      {isDeleteDialogOpen && expenseToDelete && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-white dark:bg-gray-800 rounded-lg shadow-xl max-w-md w-full mx-4">
+            <div className="p-6">
+              <h2 className="text-xl font-semibold text-gray-900 dark:text-white mb-4">
+                Confirmar Exclusão
+              </h2>
+              <p className="text-gray-600 dark:text-gray-300 mb-6">
+                Tem certeza que deseja excluir a despesa "{expenseToDelete.description || 'Despesa sem descrição'}"?
+                Esta ação não pode ser desfeita.
+              </p>
+              <div className="flex justify-end space-x-3">
+                <button
+                  onClick={() => {
+                    setIsDeleteDialogOpen(false);
+                    setExpenseToDelete(null);
+                  }}
+                  className="px-4 py-2 text-sm font-medium text-gray-700 bg-gray-100 rounded-lg hover:bg-gray-200 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-gray-500 dark:bg-gray-700 dark:text-gray-300 dark:hover:bg-gray-600"
+                >
+                  Cancelar
+                </button>
+                <button
+                  onClick={handleDeleteExpense}
+                  className="px-4 py-2 text-sm font-medium text-white bg-red-600 rounded-lg hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500"
+                >
+                  Excluir
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
       )}
     </div>
   );

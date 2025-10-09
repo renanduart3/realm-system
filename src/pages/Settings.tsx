@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Save, Loader2, CloudCog, CreditCard, Star, Check, X, Brain, Calendar, Cloud, AlertTriangle, Building2, Phone, Globe, Facebook, Instagram, Linkedin, Twitter, Pencil, RefreshCw } from 'lucide-react';
+import { Save, Loader2, CloudCog, CreditCard, Star, Check, X, Brain, Calendar, Cloud, AlertTriangle, Building2, Phone, Globe, Facebook, Instagram, Linkedin, Twitter, Pencil, RefreshCw, Plus, Trash2 } from 'lucide-react';
 import { systemConfigService } from '../services/systemConfigService';
 import { googleSheetsSyncService } from '../services/googleSheets.service';
 import { OrganizationSetup } from '../model/types';
@@ -12,6 +12,7 @@ import { useToast } from '../hooks/useToast';
 import useSubscriptionFeatures from '../hooks/useSubscriptionFeatures';
 import { stripeService } from '../services/payment/StripeService';
 import { supabaseService } from '../services/supabaseService';
+import { v4 as uuidv4 } from 'uuid';
 
 type SubscriptionStatus = 'active' | 'canceled' | 'past_due' | 'incomplete' | 'free' | 'none' | null;
 
@@ -79,6 +80,24 @@ const Settings = () => {
   const loadConfig = async () => {
     const currentConfig = await systemConfigService.getConfig();
     if (currentConfig) {
+      // Migrar chave PIX antiga para o novo formato
+      if (currentConfig.pix_key && !currentConfig.pix_keys) {
+        const migratedPixKey = {
+          id: uuidv4(),
+          type: currentConfig.pix_key.type,
+          key: currentConfig.pix_key.key,
+          description: 'Chave PIX Principal',
+          bank_name: '',
+          beneficiary_name: currentConfig.organization_name || ''
+        };
+        
+        currentConfig.pix_keys = [migratedPixKey];
+        delete currentConfig.pix_key;
+        
+        // Salvar a configuração migrada
+        await systemConfigService.saveConfig(currentConfig);
+      }
+      
       setConfig(currentConfig);
     }
   };
@@ -172,6 +191,38 @@ const Settings = () => {
     setConfig(prev => ({
       ...prev,
       [field]: value
+    }));
+  };
+
+  const addPixKey = () => {
+    const newPixKey = {
+      id: uuidv4(),
+      type: 'random' as const,
+      key: '',
+      description: '',
+      bank_name: '',
+      beneficiary_name: ''
+    };
+
+    setConfig(prev => ({
+      ...prev,
+      pix_keys: [...(prev.pix_keys || []), newPixKey]
+    }));
+  };
+
+  const updatePixKey = (id: string, field: string, value: string) => {
+    setConfig(prev => ({
+      ...prev,
+      pix_keys: prev.pix_keys?.map(pixKey => 
+        pixKey.id === id ? { ...pixKey, [field]: value } : pixKey
+      ) || []
+    }));
+  };
+
+  const removePixKey = (id: string) => {
+    setConfig(prev => ({
+      ...prev,
+      pix_keys: prev.pix_keys?.filter(pixKey => pixKey.id !== id) || []
     }));
   };
 
@@ -505,42 +556,138 @@ const Settings = () => {
       </div>
 
       <div className="space-y-4">
-        <h3 className="text-sm font-medium text-gray-700 dark:text-gray-300">Configuração do PIX</h3>
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          <div>
-            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">
-              Chave PIX
-            </label>
-            <input
-              type="text"
-              value={config.pix_key?.key || ''}
-              onChange={(e) => handleChange('pix_key', { type: 'random', key: e.target.value })}
-              className={`mt-1 block w-full rounded-md border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white ${
-                !isEditMode ? 'bg-gray-50 dark:bg-gray-600 cursor-not-allowed' : ''
-              }`}
-              placeholder="Digite sua chave PIX"
-              readOnly={!isEditMode}
-              disabled={!isEditMode}
-            />
-          </div>
-
-          <div>
-            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">
-              Nome do Beneficiário
-            </label>
-            <input
-              type="text"
-              value={config.organization_name || ''}
-              onChange={(e) => handleChange('organization_name', e.target.value)}
-              className={`mt-1 block w-full rounded-md border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white ${
-                !isEditMode ? 'bg-gray-50 dark:bg-gray-600 cursor-not-allowed' : ''
-              }`}
-              placeholder="Nome do beneficiário PIX"
-              readOnly={!isEditMode}
-              disabled={!isEditMode}
-            />
-          </div>
+        <div className="flex items-center justify-between">
+          <h3 className="text-sm font-medium text-gray-700 dark:text-gray-300">Chaves PIX</h3>
+          {isEditMode && (
+            <button
+              type="button"
+              onClick={addPixKey}
+              className="inline-flex items-center px-3 py-2 text-sm font-medium text-blue-600 bg-blue-50 rounded-lg hover:bg-blue-100 dark:bg-blue-900/20 dark:text-blue-400 dark:hover:bg-blue-900/30"
+            >
+              <Plus className="h-4 w-4 mr-1" />
+              Adicionar Chave
+            </button>
+          )}
         </div>
+        
+        {config.pix_keys && config.pix_keys.length > 0 ? (
+          <div className="space-y-4">
+            {config.pix_keys.map((pixKey) => (
+              <div key={pixKey.id} className="p-4 border border-gray-200 dark:border-gray-700 rounded-lg bg-gray-50 dark:bg-gray-800/50">
+                <div className="flex items-center justify-between mb-3">
+                  <span className="text-sm font-medium text-gray-700 dark:text-gray-300">
+                    Chave PIX #{config.pix_keys?.indexOf(pixKey)! + 1}
+                  </span>
+                  {isEditMode && (
+                    <button
+                      type="button"
+                      onClick={() => removePixKey(pixKey.id)}
+                      className="text-red-600 hover:text-red-800 dark:text-red-400 dark:hover:text-red-300"
+                    >
+                      <Trash2 className="h-4 w-4" />
+                    </button>
+                  )}
+                </div>
+                
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                  <div>
+                    <label className="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-1">
+                      Tipo da Chave
+                    </label>
+                    <select
+                      value={pixKey.type}
+                      onChange={(e) => updatePixKey(pixKey.id, 'type', e.target.value)}
+                      className={`w-full text-sm rounded-md border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white ${
+                        !isEditMode ? 'bg-gray-50 dark:bg-gray-600 cursor-not-allowed' : ''
+                      }`}
+                      disabled={!isEditMode}
+                    >
+                      <option value="random">Chave Aleatória</option>
+                      <option value="cpf">CPF</option>
+                      <option value="email">E-mail</option>
+                      <option value="phone">Telefone</option>
+                    </select>
+                  </div>
+                  
+                  <div>
+                    <label className="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-1">
+                      Chave PIX
+                    </label>
+                    <input
+                      type="text"
+                      value={pixKey.key}
+                      onChange={(e) => updatePixKey(pixKey.id, 'key', e.target.value)}
+                      className={`w-full text-sm rounded-md border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white ${
+                        !isEditMode ? 'bg-gray-50 dark:bg-gray-600 cursor-not-allowed' : ''
+                      }`}
+                      placeholder="Digite a chave PIX"
+                      readOnly={!isEditMode}
+                      disabled={!isEditMode}
+                    />
+                  </div>
+                  
+                  <div>
+                    <label className="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-1">
+                      Descrição
+                    </label>
+                    <input
+                      type="text"
+                      value={pixKey.description}
+                      onChange={(e) => updatePixKey(pixKey.id, 'description', e.target.value)}
+                      className={`w-full text-sm rounded-md border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white ${
+                        !isEditMode ? 'bg-gray-50 dark:bg-gray-600 cursor-not-allowed' : ''
+                      }`}
+                      placeholder="Ex: Conta Principal, Conta Secundária"
+                      readOnly={!isEditMode}
+                      disabled={!isEditMode}
+                    />
+                  </div>
+                  
+                  <div>
+                    <label className="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-1">
+                      Nome do Banco
+                    </label>
+                    <input
+                      type="text"
+                      value={pixKey.bank_name || ''}
+                      onChange={(e) => updatePixKey(pixKey.id, 'bank_name', e.target.value)}
+                      className={`w-full text-sm rounded-md border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white ${
+                        !isEditMode ? 'bg-gray-50 dark:bg-gray-600 cursor-not-allowed' : ''
+                      }`}
+                      placeholder="Ex: Banco do Brasil"
+                      readOnly={!isEditMode}
+                      disabled={!isEditMode}
+                    />
+                  </div>
+                  
+                  <div>
+                    <label className="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-1">
+                      Nome do Beneficiário
+                    </label>
+                    <input
+                      type="text"
+                      value={pixKey.beneficiary_name || ''}
+                      onChange={(e) => updatePixKey(pixKey.id, 'beneficiary_name', e.target.value)}
+                      className={`w-full text-sm rounded-md border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white ${
+                        !isEditMode ? 'bg-gray-50 dark:bg-gray-600 cursor-not-allowed' : ''
+                      }`}
+                      placeholder="Nome do beneficiário"
+                      readOnly={!isEditMode}
+                      disabled={!isEditMode}
+                    />
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+        ) : (
+          <div className="text-center py-8 text-gray-500 dark:text-gray-400">
+            <p>Nenhuma chave PIX cadastrada.</p>
+            {isEditMode && (
+              <p className="text-sm mt-1">Clique em "Adicionar Chave" para começar.</p>
+            )}
+          </div>
+        )}
       </div>
 
       <div className="space-y-4">

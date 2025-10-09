@@ -18,6 +18,7 @@ const Products = () => {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [editingProduct, setEditingProduct] = useState<ProductService | null>(null);
+  const [refreshTrigger, setRefreshTrigger] = useState(0);
   const { showToast } = useToast();
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
@@ -70,17 +71,19 @@ const Products = () => {
 
       if (editingProduct) {
         // Atualizar produto existente
-        const success = await productService.updateProduct(
-          editingProduct.id,
-          formData.name,
-          'General',
-          price,
-          quantity,
-          productType,
-          formData.description
-        );
+        const updatedProduct = {
+          ...editingProduct,
+          name: formData.name,
+          category: 'General',
+          price: price,
+          quantity: quantity,
+          type: productType,
+          description: formData.description
+        };
 
-        if (!success) {
+        const result = await productService.editProduct(updatedProduct);
+
+        if (!result) {
           throw new Error('Erro ao atualizar produto');
         }
         showToast('Produto atualizado com sucesso', 'success');
@@ -102,7 +105,7 @@ const Products = () => {
       }
 
       resetForm();
-      window.location.reload();
+      handleProductUpdated(); // Recarregar apenas a lista de produtos
     } catch (err) {
       const errorMessage = err instanceof Error ? err.message : 'Ocorreu um erro ao salvar o produto';
       setError(errorMessage);
@@ -115,7 +118,7 @@ const Products = () => {
 
   const handleProductUpdated = () => {
     // Atualizar a lista de produtos após uma operação
-    window.location.reload();
+    setRefreshTrigger(prev => prev + 1);
   };
 
   return (
@@ -273,6 +276,7 @@ const Products = () => {
           searchTerm={searchTerm} 
           onEdit={handleEdit}
           onProductUpdated={handleProductUpdated}
+          refreshTrigger={refreshTrigger}
         />
       </div>
     </div>

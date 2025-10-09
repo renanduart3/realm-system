@@ -3,7 +3,7 @@ import { Transaction, ExpenseCategory } from '../model/types';
 import { transactionService } from '../services/transactionService';
 import { financialCategoryService } from '../services/financialCategoryService';
 import { formatCurrency } from '../utils/formatters';
-import { ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight } from 'lucide-react';
+import { ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight, CheckCircle } from 'lucide-react';
 import { useToast } from '../hooks/useToast';
 import PaymentModal from './PaymentModal';
 
@@ -24,8 +24,30 @@ export default function MonthlyExpensesList() {
   const loadExpenses = async () => {
     const month = currentDate.getMonth() + 1;
     const year = currentDate.getFullYear();
+    
+    // Buscar despesas do mês atual
     const monthlyExpenses = await transactionService.getTransactionsByMonth(month, year);
-    setExpenses(monthlyExpenses);
+    
+    // Buscar despesas pendentes de outros meses para permitir marcar como pagas
+    const allTransactions = await transactionService.getAllTransactions();
+    const pendingExpensesFromOtherMonths = allTransactions.filter(transaction => {
+      const transactionDate = new Date(transaction.date);
+      const currentMonthDate = new Date(year, month - 1);
+      
+      return transaction.status === 'pending' && 
+             (transactionDate.getMonth() !== currentMonthDate.getMonth() || 
+              transactionDate.getFullYear() !== currentMonthDate.getFullYear());
+    });
+    
+    // Combinar despesas do mês atual com despesas pendentes de outros meses
+    const combinedExpenses = [...monthlyExpenses, ...pendingExpensesFromOtherMonths];
+    
+    // Remover duplicatas baseado no ID
+    const uniqueExpenses = combinedExpenses.filter((expense, index, self) => 
+      index === self.findIndex(e => e.id === expense.id)
+    );
+    
+    setExpenses(uniqueExpenses);
     setCurrentPage(1); // Reset to first page when loading new data
   };
 
@@ -194,16 +216,31 @@ export default function MonthlyExpensesList() {
           </p>
         ) : (
           <>
-            {currentExpenses.map(expense => (
-              <div
-                key={expense.id}
-                className="p-4 border border-gray-200 dark:border-gray-700 rounded-lg"
-              >
+            {currentExpenses.map(expense => {
+              const expenseDate = new Date(expense.date);
+              const currentMonthDate = new Date(currentDate.getFullYear(), currentDate.getMonth());
+              const isFromOtherMonth = expenseDate.getMonth() !== currentMonthDate.getMonth() || 
+                                     expenseDate.getFullYear() !== currentMonthDate.getFullYear();
+              
+              return (
+                <div
+                  key={expense.id}
+                  className={`p-4 border rounded-lg ${
+                    isFromOtherMonth 
+                      ? 'border-orange-200 bg-orange-50 dark:border-orange-700 dark:bg-orange-900/20' 
+                      : 'border-gray-200 dark:border-gray-700'
+                  }`}
+                >
                 <div className="flex justify-between items-start">
                   <div>
                     <h3 className="font-medium text-gray-900 dark:text-white">
                       {expense.description || 'Untitled Expense'}
                     </h3>
+                    {isFromOtherMonth && (
+                      <span className="inline-block px-2 py-1 text-xs font-medium rounded-full bg-orange-100 text-orange-800 dark:bg-orange-900/20 dark:text-orange-400 mt-1">
+                        {expenseDate.toLocaleDateString('pt-BR', { month: 'long', year: 'numeric' })}
+                      </span>
+                    )}
                     {expense.status === 'pending' && (
                       <p className="text-sm text-gray-500 dark:text-gray-400">
                         Due: {new Date(expense.due_date || expense.date).toLocaleDateString()}
@@ -226,30 +263,26 @@ export default function MonthlyExpensesList() {
                         </span>
                       )}
                     </div>
-                    <button
-                      onClick={() => handlePaymentToggle(expense)}
-                      className={`relative inline-flex h-6 w-11 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 ${
-                        expense.status === 'paid'
-                          ? 'bg-green-500'
-                          : 'bg-gray-200 dark:bg-gray-700'
-                      }`}
-                      role="switch"
-                      aria-checked={expense.status === 'paid'}
-                    >
-                      <span className="sr-only">
-                        {expense.status === 'paid' ? 'Mark as unpaid' : 'Mark as paid'}
-                      </span>
-                      <span
-                        aria-hidden="true"
-                        className={`pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out ${
-                          expense.status === 'paid' ? 'translate-x-5' : 'translate-x-0'
-                        }`}
-                      />
-                    </button>
+                    {expense.status === 'paid' ? (
+                      <div className="flex items-center justify-center p-1">
+                        <CheckCircle className="h-5 w-5 text-green-600 dark:text-green-400" title="Despesa paga" />
+                      </div>
+                    ) : (
+                      <button
+                        onClick={() => {
+                          setSelectedExpense(expense);
+                          setIsPaymentModalOpen(true);
+                        }}
+                        className="px-3 py-1 text-xs font-medium text-white bg-green-600 rounded hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-green-500 focus:ring-offset-2"
+                      >
+                        Pagar
+                      </button>
+                    )}
                   </div>
                 </div>
               </div>
-            ))}
+              );
+            })}
 
             {/* Pagination Controls */}
             {totalPages > 1 && (
