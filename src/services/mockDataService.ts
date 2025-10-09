@@ -16,6 +16,11 @@ import {
 
 export const mockDataService = {
   async initializeMockData() {
+    // Only initialize mock data if the flag is set in the config
+    if (!appConfig.useMockData) {
+      return;
+    }
+
     try {
       console.log('Starting mock data initialization...');
 

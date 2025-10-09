@@ -262,12 +262,20 @@ const Settings = () => {
     setIsResetting(true);
 
     try {
+      // Close the database connection before deleting it
+      db.close();
       await db.delete();
+      await systemConfigService.initialize(); // Re-initialize to create default config
+
       localStorage.clear();
-      showToast('Sistema resetado com sucesso! Redirecionando para configuração...', 'success');
-      setTimeout(() => {
-        window.location.href = '/setup';
-      }, 2000);
+      sessionStorage.clear();
+
+      showToast('Sistema resetado com sucesso! Redirecionando para a configuração...', 'success');
+
+      // Navigate to setup page
+      navigate('/setup', { replace: true });
+      window.location.reload(); // Force a reload to clear all state
+
     } catch (error) {
       console.error('Erro ao resetar sistema:', error);
       showToast('Erro ao resetar sistema', 'error');
