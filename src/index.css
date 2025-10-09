@@ -24,70 +24,71 @@
 
   /* Modern Form Input Styles */
   .form-input {
-    @apply w-full px-4 py-3 rounded-xl border-2 border-gray-200 dark:border-gray-600
-           bg-white dark:bg-gray-800 text-gray-900 dark:text-white
+    @apply w-full px-4 py-3 rounded-xl border-2 border-input-border-light dark:border-input-border-dark
+           bg-input-bg-light dark:bg-input-bg-dark text-neutral-dark dark:text-neutral-light
            placeholder-gray-500 dark:placeholder-gray-400
-           focus:border-blue-500 focus:ring-4 focus:ring-blue-500/20
+           focus:border-brand-primary dark:focus:border-input-focus-dark focus:ring-4 focus:ring-brand-primary/20 dark:focus:ring-input-focus-dark/30
            transition-all duration-200 ease-in-out
            shadow-sm hover:shadow-md focus:shadow-lg;
   }
 
   .form-select {
-    @apply w-full px-4 py-3 rounded-xl border-2 border-gray-200 dark:border-gray-600
-           bg-white dark:bg-gray-800 text-gray-900 dark:text-white
-           focus:border-blue-500 focus:ring-4 focus:ring-blue-500/20
+    @apply w-full px-4 py-3 rounded-xl border-2 border-input-border-light dark:border-input-border-dark
+           bg-input-bg-light dark:bg-input-bg-dark text-neutral-dark dark:text-neutral-light
+           focus:border-brand-primary dark:focus:border-input-focus-dark focus:ring-4 focus:ring-brand-primary/20 dark:focus:ring-input-focus-dark/30
            transition-all duration-200 ease-in-out
            shadow-sm hover:shadow-md focus:shadow-lg
            appearance-none cursor-pointer;
   }
 
   .form-textarea {
-    @apply w-full px-4 py-3 rounded-xl border-2 border-gray-200 dark:border-gray-600
-           bg-white dark:bg-gray-800 text-gray-900 dark:text-white
+    @apply w-full px-4 py-3 rounded-xl border-2 border-input-border-light dark:border-input-border-dark
+           bg-input-bg-light dark:bg-input-bg-dark text-neutral-dark dark:text-neutral-light
            placeholder-gray-500 dark:placeholder-gray-400
-           focus:border-blue-500 focus:ring-4 focus:ring-blue-500/20
+           focus:border-brand-primary dark:focus:border-input-focus-dark focus:ring-4 focus:ring-brand-primary/20 dark:focus:ring-input-focus-dark/30
            transition-all duration-200 ease-in-out
            shadow-sm hover:shadow-md focus:shadow-lg
            resize-none;
   }
 
   .form-label {
-    @apply block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-2
+    @apply block text-sm font-semibold text-neutral-dark dark:text-neutral-light mb-2
            tracking-wide;
   }
 
   .form-checkbox {
-    @apply w-5 h-5 rounded-md border-2 border-gray-300 dark:border-gray-600
-           text-blue-600 bg-white dark:bg-gray-800
-           focus:ring-4 focus:ring-blue-500/20 focus:border-blue-500
+    @apply w-5 h-5 rounded-md border-2 border-input-border-light dark:border-input-border-dark
+           text-brand-primary bg-input-bg-light dark:bg-input-bg-dark
+           focus:ring-4 focus:ring-brand-primary/20 focus:border-brand-primary
            transition-all duration-200;
   }
 
   .form-radio {
-    @apply w-5 h-5 border-2 border-gray-300 dark:border-gray-600
-           text-blue-600 bg-white dark:bg-gray-800
-           focus:ring-4 focus:ring-blue-500/20 focus:border-blue-500
+    @apply w-5 h-5 border-2 border-input-border-light dark:border-input-border-dark
+           text-brand-primary bg-input-bg-light dark:bg-input-bg-dark
+           focus:ring-4 focus:ring-brand-primary/20 focus:border-brand-primary
            transition-all duration-200;
   }
 
   .btn-primary {
-    @apply px-6 py-3 bg-gradient-to-r from-blue-500 to-blue-600
-           hover:from-blue-600 hover:to-blue-700
+    @apply px-6 py-3 bg-brand-primary
+           hover:bg-opacity-90
            text-white font-semibold rounded-xl
            shadow-lg hover:shadow-xl
            transform hover:-translate-y-0.5
            transition-all duration-200 ease-in-out
-           focus:outline-none focus:ring-4 focus:ring-blue-500/20;
+           focus:outline-none focus:ring-4 focus:ring-brand-primary/30;
   }
 
   .btn-secondary {
-    @apply px-6 py-3 bg-gray-100 dark:bg-gray-700
-           hover:bg-gray-200 dark:hover:bg-gray-600
-           text-gray-700 dark:text-gray-300 font-semibold rounded-xl
+    @apply px-6 py-3 bg-neutral-medium
+           hover:bg-opacity-90
+           dark:bg-neutral-dark dark:hover:bg-opacity-90
+           text-neutral-dark dark:text-neutral-light font-semibold rounded-xl
            shadow-md hover:shadow-lg
            transform hover:-translate-y-0.5
            transition-all duration-200 ease-in-out
-           focus:outline-none focus:ring-4 focus:ring-gray-500/20;
+           focus:outline-none focus:ring-4 focus:ring-neutral-medium/30;
   }
 
   .form-group {

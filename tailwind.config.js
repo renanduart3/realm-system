@@ -4,6 +4,19 @@ export default {
   darkMode: 'class',
   theme: {
     extend: {
+      colors: {
+        'brand-primary': '#4A90E2',
+        'brand-secondary': '#50E3C2',
+        'neutral-light': '#F8F9FA',
+        'neutral-medium': '#E9ECEF',
+        'neutral-dark': '#343A40',
+        'input-bg-light': '#FFFFFF',
+        'input-border-light': '#CED4DA',
+        'input-focus-light': '#80BDFF',
+        'input-bg-dark': '#495057',
+        'input-border-dark': '#6C757D',
+        'input-focus-dark': '#4A90E2',
+      },
       screens: {
         'xs': '475px',
         'sm': '640px',

@@ -14,6 +14,7 @@ export const incomeService = {
       amount: data.amount || 0,
       date: data.date || new Date().toISOString(),
       donor_id: data.donor_id,
+      person_id: data.person_id,
       category: data.category || 'other',
       type: data.type || 'other',
       is_recurring: data.is_recurring || false,

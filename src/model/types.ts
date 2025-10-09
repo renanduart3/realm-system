@@ -126,6 +126,8 @@ export interface Person extends BaseEntity {
     name: string;
     email: string;
     phone: string;
+    isWhatsApp?: boolean;
+    birthDate?: string;
     document: string;
     address?: string;
     socialPrograms?: string[];
@@ -151,6 +153,7 @@ export interface Income extends BaseEntity {
     amount: number;
     date: string;
     donor_id?: string;
+    person_id?: string;
     category: string;
     type: TransactionType;
     is_recurring: boolean;
