@@ -163,5 +163,37 @@
       }
     ],
     "productPairs": []
+  },
+  "programImpact": {
+    "programs": [
+      {
+        "name": "Oficinas Comunitárias",
+        "beneficiariesReached": 250,
+        "outcomeMetric": "80% dos participantes relatam novas habilidades."
+      },
+      {
+        "name": "Programa de Mentoria Jovem",
+        "beneficiariesReached": 75,
+        "outcomeMetric": "Taxa de formatura de 90%."
+      }
+    ],
+    "overallImpactScore": 0.88
+  },
+  "donorEngagement": {
+    "activeDonors": 120,
+    "donationFrequency": 3.1,
+    "averageDonationAmount": 85,
+    "topDonors": [
+      {
+        "name": "Fundação Generosa",
+        "totalDonated": 15000,
+        "lastDonationDate": "2025-08-25T10:00:00Z"
+      },
+      {
+        "name": "Benfeitor Anônimo",
+        "totalDonated": 10000,
+        "lastDonationDate": "2025-08-10T10:00:00Z"
+      }
+    ]
   }
 }

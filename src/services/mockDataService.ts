@@ -16,18 +16,16 @@ import {
 
 export const mockDataService = {
   async initializeMockData() {
-    // Only initialize mock data if the flag is set in the config
-    if (!appConfig.useMockData) {
-      return;
-    }
-
     try {
+      if (!appConfig.useMockData) return;
+      
       console.log('Starting mock data initialization...');
 
-      // Check if data is already initialized
-      const existingData = await db.systemConfig.get('system-config');
-      if (existingData) {
-        console.log('Mock data already initialized');
+      // Check if insights are already initialized
+      const existingInsights = await db.insights.count();
+      console.log('🔍 Existing insights count:', existingInsights);
+      if (existingInsights > 0) {
+        console.log('✅ Mock insights already initialized');
         return;
       }
 
@@ -127,87 +125,45 @@ export const mockDataService = {
         await db.systemUsers.add(userData);
       }
 
-      // Add some additional mock expenses with different statuses and dates
-      const mockExpenses: Partial<Transaction>[] = [
-        {
-          category: 'services',
-          value: 500,
-          date: new Date().toISOString().split('T')[0],
-          time: new Date().toTimeString().split(' ')[0],
-          description: 'Electricity Bill',
-          status: 'pending',
-          due_date: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
-          is_recurring: true
-        },
-        {
-          category: 'consume',
-          value: 2000,
-          date: new Date().toISOString().split('T')[0],
-          time: new Date().toTimeString().split(' ')[0],
-          description: 'Office Rent',
-          status: 'paid',
-          is_recurring: true
-        },
-        {
-          category: 'others',
-          value: 300,
-          date: new Date().toISOString().split('T')[0],
-          time: new Date().toTimeString().split(' ')[0],
-          description: 'Office Supplies',
-          status: 'pending',
-          due_date: new Date(Date.now() + 3 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
-          is_recurring: false
-        }
-      ];
-
-      for (const expense of mockExpenses) {
-        const transaction: Transaction = {
-          ...expense,
-          id: uuidv4(),
-          category: expense.category as ExpenseCategory,
-          value: expense.value!,
-          date: expense.date!,
-          time: expense.time!,
-          status: expense.status!,
-          created_at: new Date().toISOString(),
-          updated_at: new Date().toISOString()
-        };
-        await db.transactions.add(transaction);
-      }
-
       // Initialize insights with correct types
-      const insightMap: Record<string, InsightType> = {
+      const insightMap: { [key: string]: InsightType } = {
         demand: INSIGHT_TYPES.DEMAND,
         sentiment: INSIGHT_TYPES.SENTIMENT,
         expense: INSIGHT_TYPES.EXPENSE,
         sales: INSIGHT_TYPES.SALES,
-        fidelization: INSIGHT_TYPES.FIDELIZATION
+        fidelization: INSIGHT_TYPES.FIDELIZATION,
+        programImpact: INSIGHT_TYPES.PROGRAM_IMPACT,
+        donorEngagement: INSIGHT_TYPES.DONOR_ENGAGEMENT
       };
 
-      const insights = {
+      const insights: { [key: string]: any } = {
         demand: mockData.demand,
         sentiment: mockData.sentiment,
         expense: mockData.expense,
         sales: mockData.salesPerformance,
-        fidelization: mockData.fidelization
+        fidelization: mockData.fidelization,
+        programImpact: mockData.programImpact,
+        donorEngagement: mockData.donorEngagement
       };
 
       for (const [key, data] of Object.entries(insights)) {
-        await db.insights.add({
-          id: uuidv4(),
-          type: insightMap[key],
-          data,
-          timestamp: new Date().toISOString(),
-          year: new Date().getFullYear(),
-          created_at: new Date().toISOString(),
-          updated_at: new Date().toISOString()
-        });
+        if (data && insightMap[key]) {
+            console.log(`🔍 Adding insight: ${key} -> ${insightMap[key]}`);
+            await db.insights.add({
+                id: uuidv4(),
+                type: insightMap[key],
+                data,
+                timestamp: new Date().toISOString(),
+                year: new Date().getFullYear(),
+                created_at: new Date().toISOString(),
+                updated_at: new Date().toISOString()
+            });
+        }
       }
 
       console.log('Mock data initialized successfully');
     } catch (error) {
       console.error('Error initializing mock data:', error);
-      // Don't throw the error, just log it to prevent app from failing to start
       console.warn('Mock data initialization failed, but continuing app startup');
     }
   }

@@ -1,45 +1,56 @@
-import { db } from '../db/AppDatabase';
+import { db, INSIGHT_TYPES } from '../db/AppDatabase';
 import { InsightData } from '../model/types';
 
 export const insightsService = {
   async getInsights(): Promise<InsightData | null> {
+    console.log('🔍 insightsService.getInsights called');
     try {
-      // Fetch all insights data from the database
+      console.log('📡 Fetching insights from database...');
       const insights = await db.insights.toArray();
+      console.log('📊 Raw insights from DB:', insights);
 
-      // Initialize the structure for InsightData
+      // Initialize the structure for InsightData with all possible fields
       const insightData: InsightData = {
         demandPrediction: null,
         customerSentiment: null,
-        expenseAnalysis: { topExpenses: [] },
+        expenseAnalysis: { topExpenses: [], savingsOpportunities: [] },
         salesPerformance: null,
         fidelization: null,
+        programImpact: null,
+        donorEngagement: null
       };
 
       // Aggregate insights based on their type
       insights.forEach(insight => {
         switch (insight.type) {
-          case 'demand_prediction':
+          case INSIGHT_TYPES.DEMAND:
             insightData.demandPrediction = insight.data;
             break;
-          case 'customer_sentiment':
+          case INSIGHT_TYPES.SENTIMENT:
             insightData.customerSentiment = insight.data;
             break;
-          case 'expense_analysis':
+          case INSIGHT_TYPES.EXPENSE:
             insightData.expenseAnalysis = insight.data;
             break;
-          case 'sales_performance':
+          case INSIGHT_TYPES.SALES:
             insightData.salesPerformance = insight.data;
             break;
-          case 'fidelization':
+          case INSIGHT_TYPES.FIDELIZATION:
             insightData.fidelization = insight.data;
+            break;
+          case INSIGHT_TYPES.PROGRAM_IMPACT:
+            insightData.programImpact = insight.data;
+            break;
+          case INSIGHT_TYPES.DONOR_ENGAGEMENT:
+            insightData.donorEngagement = insight.data;
             break;
         }
       });
 
+      console.log('📊 Final insightData:', insightData);
       return insightData;
     } catch (error) {
-      console.error("Error fetching insights data", error);
+      console.error("❌ Error fetching insights data:", error);
       return null;
     }
   }

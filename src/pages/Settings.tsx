@@ -1,11 +1,11 @@
 import React, { useState, useEffect } from 'react';
-import { Save, Loader2, CloudCog, CreditCard, Star, Check, X, Brain, Calendar, Cloud, AlertTriangle, Building2, Phone, Globe, Facebook, Instagram, Linkedin, Twitter, Pencil, RefreshCw, Plus, Trash2 } from 'lucide-react';
+import { Save, Loader2, CloudCog, CreditCard, Star, Check, X, Cloud, AlertTriangle, Facebook, Instagram, Linkedin, Twitter, Pencil, Plus, Trash2 } from 'lucide-react';
 import { systemConfigService } from '../services/systemConfigService';
 import { googleSheetsSyncService } from '../services/googleSheets.service';
 import { OrganizationSetup } from '../model/types';
 import { useAuth } from '../contexts/AuthContext';
 import { db } from '../db/AppDatabase';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import { appConfig } from '../config/app.config';
 import { ConfirmDialog } from '../components/ConfirmDialog';
 import { useToast } from '../hooks/useToast';
@@ -30,6 +30,7 @@ const tabs: TabItem[] = [
 ];
 
 const Settings = () => {
+  const [searchParams] = useSearchParams();
   const [activeTab, setActiveTab] = useState('organization');
   const [isSyncing, setIsSyncing] = useState(false);
   const [syncMessage, setSyncMessage] = useState<{ type: 'success' | 'error', text: string } | null>(null);
@@ -47,25 +48,34 @@ const Settings = () => {
   const {
     user,
     isAuthenticated,
-    isPremium,
     planName,
     subscriptionStatus
   } = useAuth() as {
     user: any;
     isAuthenticated: boolean;
-    isPremium: boolean;
     planName: string;
     subscriptionStatus: SubscriptionStatus;
   };
   const navigate = useNavigate();
-  const { canUseCloudBackup, isLoading: isLoadingFeatures } = useSubscriptionFeatures();
+  const { 
+    isPremium: isPremiumFromHook
+  } = useSubscriptionFeatures();
 
-  const isCurrentlyPremium = isPremium && subscriptionStatus === 'active';
+  const isCurrentlyPremium = isPremiumFromHook && subscriptionStatus === 'active';
+  
+  // Verificar se está em modo de desenvolvimento (variável de ambiente ativa)
+  const isDevMode = import.meta.env.VITE_APP_SUBSCRIPTION_PREMIUM === 'true';
 
   useEffect(() => {
     loadConfig();
     loadPlansFromStripe();
-  }, []);
+    
+    // Verificar se há parâmetro tab na URL
+    const tabParam = searchParams.get('tab');
+    if (tabParam && ['organization', 'subscription', 'integrations', 'reset'].includes(tabParam)) {
+      setActiveTab(tabParam);
+    }
+  }, [searchParams]);
 
 
   const loadConfig = async () => {
@@ -180,7 +190,7 @@ const Settings = () => {
     setIsSyncing(true);
     setSyncMessage(null);
 
-    if (!canUseCloudBackup) {
+    if (!isPremiumFromHook) {
       setSyncMessage({
         type: 'error',
         text: 'Esta é uma funcionalidade premium. Por favor, faça um upgrade para utilizar a sincronização com Google Sheets.',
@@ -190,7 +200,7 @@ const Settings = () => {
     }
 
     try {
-      const result = await googleSheetsSyncService.exportDataToGoogleSheets(canUseCloudBackup);
+      const result = await googleSheetsSyncService.exportDataToGoogleSheets(isPremiumFromHook);
       if (result.success) {
         setSyncMessage({ type: 'success', text: result.message });
       } else {
@@ -232,6 +242,7 @@ const Settings = () => {
     }
   };
 
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     await handleSave();
@@ -270,6 +281,41 @@ const Settings = () => {
       showToast(error.message || 'Erro ao iniciar assinatura. Tente novamente mais tarde.', 'error');
     } finally {
       setIsCreatingSubscription(false);
+    }
+  };
+
+  const handleChangePlan = async (_priceId: string) => {
+    if (!isAuthenticated || !user?.email) {
+      showToast('Por favor, faça login para alterar o plano.', 'error');
+      navigate('/login');
+      return;
+    }
+
+    try {
+      setIsCreatingSubscription(true);
+      // Aqui você implementaria a lógica para alterar o plano existente
+      showToast('Funcionalidade de mudança de plano em desenvolvimento', 'info');
+    } catch (error: any) {
+      console.error('Error changing subscription plan:', error);
+      showToast(error.message || 'Erro ao alterar plano. Tente novamente mais tarde.', 'error');
+    } finally {
+      setIsCreatingSubscription(false);
+    }
+  };
+
+  const handleCancelSubscription = async () => {
+    if (!isAuthenticated) {
+      showToast('Por favor, faça login para cancelar a assinatura.', 'error');
+      navigate('/login');
+      return;
+    }
+
+    try {
+      // Aqui você implementaria a lógica para cancelar a assinatura
+      showToast('Funcionalidade de cancelamento em desenvolvimento', 'info');
+    } catch (error: any) {
+      console.error('Error canceling subscription:', error);
+      showToast(error.message || 'Erro ao cancelar assinatura. Tente novamente mais tarde.', 'error');
     }
   };
 
@@ -716,26 +762,34 @@ const Settings = () => {
           </div>
         )}
   
-        {subscriptionStatus === 'active' && (
-          <div className={`mb-8 rounded-lg p-6 ${isCurrentlyPremium ? 'bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800' : 'bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800'}`}>
+        {(subscriptionStatus === 'active' || isDevMode) && (
+          <div className={`mb-8 rounded-lg p-6 ${(isCurrentlyPremium || isDevMode) ? 'bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800' : 'bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800'}`}>
             <div className="flex items-center justify-between">
               <div>
-                <h3 className={`text-lg font-semibold ${isCurrentlyPremium ? 'text-green-900 dark:text-green-400' : 'text-blue-900 dark:text-blue-400'}`}>
-                  {isCurrentlyPremium ? 'Assinatura Premium Ativa' : 'Plano Gratuito Ativo'}
+                <h3 className={`text-lg font-semibold ${(isCurrentlyPremium || isDevMode) ? 'text-green-900 dark:text-green-400' : 'text-blue-900 dark:text-blue-400'}`}>
+                  {(isCurrentlyPremium || isDevMode) ? 'Assinatura Premium Ativa' : 'Plano Gratuito Ativo'}
                 </h3>
+                {isDevMode && (
+                  <p className="text-sm text-yellow-700 dark:text-yellow-300 mt-1">
+                    Modo Desenvolvimento - Premium ativo via variável de ambiente
+                  </p>
+                )}
               </div>
-              <button
-                onClick={() => navigate('/subscription')}
-                className={`px-4 py-2 text-sm font-medium rounded-lg transition-colors
-                  ${isCurrentlyPremium 
-                    ? 'text-green-700 dark:text-green-400 border border-green-300 dark:border-green-700 hover:bg-green-100 dark:hover:bg-green-900/30' 
-                    : 'text-blue-700 dark:text-blue-400 border border-blue-300 dark:border-blue-700 hover:bg-blue-100 dark:hover:bg-blue-900/30'}`}
-              >
-                Gerenciar Assinatura
-              </button>
+              <div className="flex gap-2">
+
+                {(isCurrentlyPremium || isDevMode) && (
+                  <button
+                    onClick={handleCancelSubscription}
+                    className="px-4 py-2 text-sm font-medium text-red-700 dark:text-red-400 border border-red-300 dark:border-red-700 rounded-lg hover:bg-red-100 dark:hover:bg-red-900/30 transition-colors"
+                  >
+                    Cancelar Assinatura
+                  </button>
+                )}
+              </div>
             </div>
           </div>
         )}
+
   
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
           {/* Plano Gratuito (estático) */}
@@ -744,9 +798,11 @@ const Settings = () => {
             <p className="text-2xl font-bold mt-2">R$ 0</p>
             <p className="text-gray-500 dark:text-gray-400 mb-6">Sempre gratuito</p>
             <ul className="space-y-2 mb-8 text-sm flex-grow">
-              <li className="flex items-center"><Check className="w-4 h-4 mr-2 text-green-500"/>Gestão básica de negócios</li>
+              <li className="flex items-center"><Check className="w-4 h-4 mr-2 text-green-500"/>Gestão completa de negócios</li>
               <li className="flex items-center text-gray-400"><X className="w-4 h-4 mr-2 text-red-500"/>Sem backup na nuvem</li>
               <li className="flex items-center text-gray-400"><X className="w-4 h-4 mr-2 text-red-500"/>Sem inteligência de negócios</li>
+              <li className="flex items-center text-gray-400"><X className="w-4 h-4 mr-2 text-red-500"/>Sem sincronização Google Sheets</li>
+              <li className="flex items-center text-gray-400"><X className="w-4 h-4 mr-2 text-red-500"/>Sem exportação de dados</li>
             </ul>
             <button
               disabled={subscriptionStatus === 'active' && planName === 'free'}
@@ -766,12 +822,12 @@ const Settings = () => {
                   {appConfig.subscription.plans.premium.features.map(f => <li key={f} className="flex items-center"><Check className="w-4 h-4 mr-2 text-green-500"/>{f}</li>)}
                 </ul>
                 <button
-                  onClick={() => handleSubscribe(monthlyPlan.priceId)}
-                  disabled={isCurrentlyPremium || isCreatingSubscription}
+                  onClick={() => (isCurrentlyPremium || isDevMode) ? handleChangePlan(monthlyPlan.priceId) : handleSubscribe(monthlyPlan.priceId)}
+                  disabled={isCreatingSubscription}
                   className="w-full py-2 px-4 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-medium transition-colors flex items-center justify-center gap-2 disabled:bg-blue-400"
                 >
                   {isCreatingSubscription ? <Loader2 className="w-5 h-5 animate-spin"/> : <CreditCard className="w-5 h-5" />}
-                  {isCurrentlyPremium ? 'Plano Atual' : 'Assinar Mensal'}
+                  {(isCurrentlyPremium || isDevMode) ? 'Mudar para Mensal' : 'Assinar Mensal'}
                 </button>
               </div>
             )}
@@ -780,20 +836,30 @@ const Settings = () => {
                 <div className="absolute top-0 -translate-y-1/2 left-1/2 -translate-x-1/2 px-3 py-1 bg-purple-500 text-white text-xs font-bold rounded-full">MAIS POPULAR</div>
                 <h3 className="text-lg font-semibold text-gray-900 dark:text-white">{annualPlan.name} Anual</h3>
                 <p className="text-2xl font-bold mt-2">{formatCurrency(annualPlan.price)}<span className="text-sm font-normal text-gray-500">/ano</span></p>
+                <div className="mt-2 p-2 bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-700 rounded-lg">
+                  <div className="flex items-center justify-between">
+                    <span className="text-sm text-green-800 dark:text-green-300 font-medium">💰 Economia de R$ 49,88</span>
+                    <span className="text-xs text-green-600 dark:text-green-400">20% OFF</span>
+                  </div>
+                  <p className="text-xs text-green-700 dark:text-green-400 mt-1">
+                    vs R$ 239,88 se pagar mensalmente
+                  </p>
+                </div>
                 <ul className="space-y-2 my-6 text-sm flex-grow">
                   {appConfig.subscription.plans.premium.features.map(f => <li key={f} className="flex items-center"><Check className="w-4 h-4 mr-2 text-green-500"/>{f}</li>)}
                 </ul>
                 <button
-                  onClick={() => handleSubscribe(annualPlan.priceId)}
-                  disabled={isCurrentlyPremium || isCreatingSubscription}
+                  onClick={() => (isCurrentlyPremium || isDevMode) ? handleChangePlan(annualPlan.priceId) : handleSubscribe(annualPlan.priceId)}
+                  disabled={isCreatingSubscription}
                   className="w-full py-2 px-4 bg-purple-600 hover:bg-purple-700 text-white rounded-lg font-medium transition-colors flex items-center justify-center gap-2 disabled:bg-purple-400"
                 >
                   {isCreatingSubscription ? <Loader2 className="w-5 h-5 animate-spin"/> : <CreditCard className="w-5 h-5" />}
-                  {isCurrentlyPremium ? 'Plano Atual' : 'Assinar Anual'}
+                  {(isCurrentlyPremium || isDevMode) ? 'Mudar para Anual' : 'Assinar Anual'}
                 </button>
               </div>
             )}
           </div>
+          
         </div>
       </>
     );
@@ -843,9 +909,9 @@ const Settings = () => {
                   </div>
                   <button
                     onClick={handleGoogleSheetsSync}
-                    disabled={isSyncing || !canUseCloudBackup}
+                    disabled={isSyncing || !isPremiumFromHook}
                     className={`px-4 py-2 rounded-lg font-medium flex items-center gap-2 ${
-                      canUseCloudBackup
+                      isPremiumFromHook
                         ? 'bg-blue-600 text-white hover:bg-blue-700'
                         : 'bg-gray-100 dark:bg-gray-700 text-gray-400 cursor-not-allowed'
                     }`}
@@ -863,6 +929,28 @@ const Settings = () => {
                     )}
                   </button>
                 </div>
+
+                {!isPremiumFromHook && (
+                  <div className="mt-4 p-4 bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-200 dark:border-yellow-700 rounded-lg">
+                    <div className="flex items-start">
+                      <AlertTriangle className="w-5 h-5 text-yellow-600 dark:text-yellow-400 mt-0.5 mr-3" />
+                      <div>
+                        <h4 className="text-sm font-medium text-yellow-800 dark:text-yellow-300">
+                          Funcionalidade Premium
+                        </h4>
+                        <p className="text-sm text-yellow-700 dark:text-yellow-200 mt-1">
+                          A sincronização com Google Sheets está disponível apenas no plano Premium. 
+                          <button 
+                            onClick={() => setActiveTab('subscription')}
+                            className="underline hover:no-underline ml-1"
+                          >
+                            Atualize seu plano
+                          </button>
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+                )}
 
                 {syncMessage && (
                   <div

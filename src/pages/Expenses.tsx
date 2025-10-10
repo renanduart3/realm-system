@@ -1,207 +1,97 @@
-import React, { useState, useEffect } from 'react';
-import { transactionService } from '../services/transactionService';
-import { financialCategoryService, EXPENSE_CATEGORIES } from '../services/financialCategoryService';
-import { Transaction, ExpenseCategory } from '../model/types';
+import React, { useState } from 'react';
+import { CombinedExpense, RecurringExpense } from '../model/types';
 import { useToast } from '../hooks/useToast';
-import { formatCurrency } from '../utils/formatters';
-import MonthlyExpensesList from '../components/MonthlyExpensesList';
-import { supabaseService } from '../services/supabaseService';
-import { useAuth } from '../contexts/AuthContext';
-import { ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight, Trash2, CheckCircle } from 'lucide-react';
-import PaymentModal from '../components/PaymentModal';
+import { useOrganizationType } from '../hooks/useOrganizationType';
+import OverviewTab from '../components/expenses/OverviewTab';
+import MonthlyExpensesTab from '../components/expenses/MonthlyExpensesTab';
+import RecurringExpensesTab from '../components/expenses/RecurringExpensesTab';
+import AddExpenseModal from '../components/expenses/AddExpenseModal';
+import RecurringExpenseModal from '../components/expenses/RecurringExpenseModal';
+import PayRecurringModal from '../components/expenses/PayRecurringModal';
+import { transactionService } from '../services/transactionService';
+import { recurringExpenseService } from '../services/recurringExpenseService';
 
 export default function Expenses() {
-  const [activeTab, setActiveTab] = useState<'add' | 'monthly'>('add');
-  const [formData, setFormData] = useState({
-    description: '',
-    amount: '',
-    due_date: new Date().toISOString().split('T')[0],
-    category: 'others' as ExpenseCategory,
-    is_recurring: false,
-    status: 'pending' as 'pending' | 'paid'
-  });
-
-  const [recentExpenses, setRecentExpenses] = useState<Transaction[]>([]);
-  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [activeTab, setActiveTab] = useState<'overview' | 'monthly' | 'recurring'>('overview');
+  const [isAddExpenseModalOpen, setIsAddExpenseModalOpen] = useState(false);
+  const [isRecurringExpenseModalOpen, setIsRecurringExpenseModalOpen] = useState(false);
+  const [isPayRecurringModalOpen, setIsPayRecurringModalOpen] = useState(false);
+  const [editingRecurringExpense, setEditingRecurringExpense] = useState<RecurringExpense | null>(null);
+  const [selectedExpense, setSelectedExpense] = useState<CombinedExpense | null>(null);
   const { showToast } = useToast();
-  const [isLoading, setIsLoading] = useState(false);
-  const [currentPage, setCurrentPage] = useState(1);
-  const [itemsPerPage] = useState(10);
-  const [isPaymentModalOpen, setIsPaymentModalOpen] = useState(false);
-  const [selectedExpense, setSelectedExpense] = useState<Transaction | null>(null);
-  const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
-  const [expenseToDelete, setExpenseToDelete] = useState<Transaction | null>(null);
+  const { isProfit } = useOrganizationType();
 
-  const { user } = useAuth();
-  const userEmail = user?.email;
-
-  useEffect(() => {
-    loadRecentExpenses();
-  }, []);
-
-  const loadRecentExpenses = async () => {
-    const currentMonth = new Date().getMonth() + 1;
-    const currentYear = new Date().getFullYear();
-    const expenses = await transactionService.getTransactionsByMonth(currentMonth, currentYear);
-    setRecentExpenses(expenses);
+  const handleAddExpense = () => {
+    setIsAddExpenseModalOpen(true);
   };
 
-  const handlePaymentToggle = async (transaction: Transaction) => {
-    const newStatus = transaction.status === 'paid' ? 'pending' : 'paid';
-    const success = await transactionService.updateTransactionStatus(transaction.id, newStatus);
-    if (success) {
-      loadRecentExpenses();
-      showToast(`Expense marked as ${newStatus}`, 'success');
-    } else {
-      showToast('Failed to update expense status', 'error');
+  const handleAddRecurring = () => {
+    setEditingRecurringExpense(null);
+    setIsRecurringExpenseModalOpen(true);
+  };
+
+  const handleEditRecurring = (expense: RecurringExpense) => {
+    setEditingRecurringExpense(expense);
+    setIsRecurringExpenseModalOpen(true);
+  };
+
+  const handleEditExpense = (expense: CombinedExpense) => {
+    // TODO: Implement edit for real expenses
+    showToast('Edição de despesas pontuais será implementada em breve', 'info');
+  };
+
+  const handleDeleteExpense = async (expense: CombinedExpense) => {
+    if (expense.type === 'virtual') {
+      showToast('Não é possível excluir despesas virtuais', 'error');
+      return;
     }
-  };
 
-  const handlePaymentSubmit = async (amount: number, interest?: number) => {
-    if (!selectedExpense) return;
-
-    try {
-      const result = await transactionService.createPaymentTransaction(
-        selectedExpense.id,
-        amount,
-        interest
-      );
-
-      if (result) {
-        showToast('Payment recorded successfully', 'success');
-        loadRecentExpenses();
-      } else {
-        throw new Error('Failed to record payment');
-      }
-    } catch (error) {
-      showToast(
-        error instanceof Error ? error.message : 'Failed to record payment',
-        'error'
-      );
-    } finally {
-      setIsPaymentModalOpen(false);
-      setSelectedExpense(null);
-    }
-  };
-
-  const handleDeleteExpense = async () => {
-    if (!expenseToDelete) return;
-
-    try {
-      const success = await transactionService.deleteTransaction(expenseToDelete.id);
+    if (window.confirm(`Tem certeza que deseja excluir a despesa "${expense.description}"?`)) {
+      try {
+        const success = await transactionService.deleteTransaction(expense.id);
       if (success) {
         showToast('Despesa excluída com sucesso', 'success');
-        loadRecentExpenses();
       } else {
-        throw new Error('Failed to delete expense');
+          throw new Error('Falha ao excluir despesa');
       }
     } catch (error) {
       showToast(
         error instanceof Error ? error.message : 'Erro ao excluir despesa',
         'error'
       );
-    } finally {
-      setIsDeleteDialogOpen(false);
-      setExpenseToDelete(null);
+      }
     }
   };
 
-  const resetForm = () => {
-    setFormData({
-      description: '',
-      amount: '',
-      due_date: new Date().toISOString().split('T')[0],
-      category: 'others',
-      is_recurring: false,
-      status: 'pending'
-    });
+  const handlePayExpense = (expense: CombinedExpense) => {
+    setSelectedExpense(expense);
+    setIsPayRecurringModalOpen(true);
   };
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setIsSubmitting(true);
-
-    try {
-      if (!formData.amount || !formData.category || !formData.due_date) {
-        throw new Error('Please fill in all required fields');
-      }
-
-      const amount = parseFloat(formData.amount);
-      if (isNaN(amount) || amount <= 0) {
-        throw new Error('Please enter a valid amount');
-      }
-
-      // Create the transaction
-      const result = await transactionService.createTransaction(
-        formData.category,
-        amount,
-        formData.due_date,
-        new Date().toTimeString().split(' ')[0],
-        formData.description,
-        undefined,
-        undefined,
-        formData.is_recurring,
-        formData.due_date
-      );
-
-      if (!result) {
-        throw new Error('Failed to create expense');
-      }
-
-      // If the expense is marked as paid, update its status
-      if (formData.status === 'paid' && result.id) {
-        await transactionService.updateTransactionStatus(result.id, 'paid');
-      }
-
-      showToast('Expense added successfully', 'success');
-      resetForm();
-      loadRecentExpenses();
-    } catch (error) {
-      showToast(
-        error instanceof Error ? error.message : 'Failed to add expense',
-        'error'
-      );
-    } finally {
-      setIsSubmitting(false);
-    }
-  };
-
-  const checkSubscriptionStatus = async () => {
-    const { data, error } = await supabaseService
-      .from('subscriptions')
-      .select('*')
-      .eq('email', userEmail)
-      .single();
-
-    return data?.status; // 'active', 'canceled', etc.
-  };
-
-  // Pagination calculations
-  const totalPages = Math.ceil(recentExpenses.length / itemsPerPage);
-  const startIndex = (currentPage - 1) * itemsPerPage;
-  const endIndex = startIndex + itemsPerPage;
-  const currentExpenses = recentExpenses.slice(startIndex, endIndex);
-
-  const handlePageChange = (page: number) => {
-    setCurrentPage(page);
+  const handleModalSuccess = () => {
+    // Refresh data in all tabs
+    // This will be handled by each tab component
   };
 
   return (
     <div className="p-6">
       <div className="mb-6">
-        <h1 className="text-2xl font-bold text-gray-900 dark:text-white">Expenses</h1>
+        <h1 className="text-2xl font-bold text-gray-900 dark:text-white">Gestão de Despesas</h1>
+        <p className="text-gray-600 dark:text-gray-400 mt-1">
+          Organize suas despesas pontuais e recorrentes de forma inteligente
+        </p>
 
         <div className="mt-4 border-b border-gray-200 dark:border-gray-700">
           <nav className="-mb-px flex space-x-8">
             <button
-              onClick={() => setActiveTab('add')}
+              onClick={() => setActiveTab('overview')}
               className={`py-2 px-1 border-b-2 font-medium text-sm ${
-                activeTab === 'add'
+                activeTab === 'overview'
                   ? 'border-blue-500 text-blue-600 dark:text-blue-500'
                   : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300 dark:text-gray-400 dark:hover:text-gray-300'
               }`}
             >
-              Add Expense
+              Visão Geral
             </button>
             <button
               onClick={() => setActiveTab('monthly')}
@@ -211,314 +101,68 @@ export default function Expenses() {
                   : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300 dark:text-gray-400 dark:hover:text-gray-300'
               }`}
             >
-              Monthly Expenses
+              Lançamentos do Mês
+            </button>
+            <button
+              onClick={() => setActiveTab('recurring')}
+              className={`py-2 px-1 border-b-2 font-medium text-sm ${
+                activeTab === 'recurring'
+                  ? 'border-blue-500 text-blue-600 dark:text-blue-500'
+                  : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300 dark:text-gray-400 dark:hover:text-gray-300'
+              }`}
+            >
+              Despesas Recorrentes
             </button>
           </nav>
         </div>
       </div>
 
-      {activeTab === 'add' ? (
-        <>
-          <div className="bg-white dark:bg-gray-800 p-6 rounded-lg shadow mb-6">
-            <h2 className="text-lg font-semibold mb-4 text-gray-900 dark:text-white">Add Expense</h2>
-            <form onSubmit={handleSubmit} className="space-y-4">
-              <div>
-                <label className="form-label">
-                  Description
-                </label>
-                <input
-                  type="text"
-                  value={formData.description}
-                  onChange={(e) => setFormData({ ...formData, description: e.target.value })}
-                  className="form-input"
-                  required
-                />
-              </div>
-
-              <div>
-                <label className="form-label">
-                  Amount
-                </label>
-                <input
-                  type="number"
-                  step="0.01"
-                  value={formData.amount}
-                  onChange={(e) => setFormData({ ...formData, amount: e.target.value })}
-                  className="form-input"
-                  required
-                />
-              </div>
-
-              <div>
-                <label className="form-label mb-2">
-                  Category
-                </label>
-                <div className="grid grid-cols-3 gap-2">
-                  {EXPENSE_CATEGORIES.map(category => (
-                    <button
-                      key={category}
-                      type="button"
-                      onClick={() => setFormData(prev => ({ ...prev, category }))}
-                      className={`p-2 rounded-lg text-sm font-medium transition-colors ${
-                        formData.category === category
-                          ? 'bg-blue-500 text-white'
-                          : 'bg-gray-100 text-gray-700 dark:bg-gray-700 dark:text-gray-300'
-                      }`}
-                    >
-                      {financialCategoryService.getCategoryLabel(category)}
-                    </button>
-                  ))}
-                </div>
-              </div>
-
-              <div className="flex items-center space-x-4">
-                <div className="flex-1">
-                  <label className="form-label">
-                    Payment Status
-                  </label>
-                  <div className="mt-2">
-                    <label className="inline-flex items-center">
-                      <input
-                        type="radio"
-                        className="form-radio"
-                        name="status"
-                        value="paid"
-                        checked={formData.status === 'paid'}
-                        onChange={(e) => setFormData({ ...formData, status: 'paid' })}
-                      />
-                      <span className="ml-2 text-gray-700 dark:text-gray-300">Paid</span>
-                    </label>
-                    <label className="inline-flex items-center ml-6">
-                      <input
-                        type="radio"
-                        className="form-radio"
-                        name="status"
-                        value="pending"
-                        checked={formData.status === 'pending'}
-                        onChange={(e) => setFormData({ ...formData, status: 'pending' })}
-                      />
-                      <span className="ml-2 text-gray-700 dark:text-gray-300">Unpaid</span>
-                    </label>
-                  </div>
-                </div>
-              </div>
-
-              {formData.status === 'pending' && (
-                <div>
-                  <label className="form-label">
-                    Due Date
-                  </label>
-                  <input
-                    type="date"
-                    value={formData.due_date}
-                    onChange={(e) => setFormData({ ...formData, due_date: e.target.value })}
-                    className="form-input"
-                    required
-                  />
-                </div>
-              )}
-
-              <div className="flex items-center">
-                <input
-                  type="checkbox"
-                  id="is_recurring"
-                  checked={formData.is_recurring}
-                  onChange={(e) => setFormData({ ...formData, is_recurring: e.target.checked })}
-                  className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
-                />
-                <label htmlFor="is_recurring" className="ml-2 block text-sm text-gray-900 dark:text-gray-300">
-                  Recurring Expense
-                </label>
-              </div>
-
-              <button
-                type="submit"
-                disabled={isSubmitting}
-                className={`w-full px-4 py-2 text-sm font-medium text-white bg-blue-600 rounded-lg hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 dark:focus:ring-offset-gray-800 ${
-                  isSubmitting ? 'opacity-75 cursor-not-allowed' : ''
-                }`}
-              >
-                {isSubmitting ? (
-                  <div className="flex items-center justify-center">
-                    <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin mr-2" />
-                    Processing...
-                  </div>
-                ) : (
-                  'Add Expense'
-                )}
-              </button>
-            </form>
-          </div>
-
-          <div className="bg-white dark:bg-gray-800 p-6 rounded-lg shadow">
-            <h2 className="text-lg font-semibold mb-4 text-gray-900 dark:text-white">Despesas Recentes</h2>
-            <div className="space-y-4">
-              {currentExpenses.length === 0 ? (
-                <p className="text-gray-500 dark:text-gray-400 text-center">Nenhuma despesa registrada</p>
-              ) : (
-                <>
-                  {currentExpenses.map(expense => (
-                    <div
-                      key={expense.id}
-                      className="p-4 border border-gray-200 dark:border-gray-700 rounded-lg"
-                    >
-                      <div className="flex justify-between items-start">
-                        <div>
-                          <h3 className="font-medium text-gray-900 dark:text-white">
-                            {expense.description || 'Untitled Expense'}
-                          </h3>
-                          {expense.status === 'pending' && (
-                            <p className="text-sm text-gray-500 dark:text-gray-400">
-                              Due: {new Date(expense.due_date || expense.date).toLocaleDateString()}
-                            </p>
-                          )}
-                          <span className={`inline-block px-2 py-1 text-xs font-medium rounded-full mt-1 ${
-                            financialCategoryService.getCategoryColor(expense.category)
-                          }`}>
-                            {financialCategoryService.getCategoryLabel(expense.category)}
-                          </span>
-                        </div>
-                        <div className="flex items-start space-x-4">
-                          <div className="text-right">
-                            <p className="font-semibold text-gray-900 dark:text-white">
-                              {formatCurrency(expense.value)}
-                            </p>
-                            {expense.is_recurring && (
-                              <span className="inline-block px-2 py-1 text-xs font-medium rounded-full bg-blue-100 text-blue-800 dark:bg-blue-900/20 dark:text-blue-400 mt-1">
-                                Recurring
-                              </span>
-                            )}
-                          </div>
-                          <div className="flex items-center space-x-2">
-                            <button
-                              onClick={() => {
-                                setExpenseToDelete(expense);
-                                setIsDeleteDialogOpen(true);
-                              }}
-                              className="p-1 text-red-600 hover:text-red-800 dark:text-red-400 dark:hover:text-red-300 hover:bg-red-50 dark:hover:bg-red-900/20 rounded transition-colors duration-200"
-                              title="Excluir despesa"
-                            >
-                              <Trash2 className="h-4 w-4" />
-                            </button>
-                            {expense.status === 'paid' ? (
-                              <div className="flex items-center justify-center p-1">
-                                <CheckCircle className="h-5 w-5 text-green-600 dark:text-green-400" title="Despesa paga" />
-                              </div>
-                            ) : (
-                              <button
-                                onClick={() => {
-                                  setSelectedExpense(expense);
-                                  setIsPaymentModalOpen(true);
-                                }}
-                                className="px-3 py-1 text-xs font-medium text-white bg-green-600 rounded hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-green-500 focus:ring-offset-2"
-                              >
-                                Pagar
-                              </button>
-                            )}
-                          </div>
-                        </div>
-                      </div>
-                    </div>
-                  ))}
-
-                  {/* Pagination Controls */}
-                  {totalPages > 1 && (
-                    <div className="flex items-center justify-between mt-6 px-4 py-3 bg-white dark:bg-gray-800 rounded-lg shadow">
-                      <div className="flex items-center">
-                        <p className="text-sm text-gray-700 dark:text-gray-300">
-                          Mostrando <span className="font-medium">{startIndex + 1}</span> a{' '}
-                          <span className="font-medium">{Math.min(endIndex, recentExpenses.length)}</span> de{' '}
-                          <span className="font-medium">{recentExpenses.length}</span> despesas
-                        </p>
-                      </div>
-                      <div className="flex items-center space-x-2">
-                        <button
-                          onClick={() => handlePageChange(1)}
-                          disabled={currentPage === 1}
-                          className="p-2 rounded-lg text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 disabled:opacity-50 disabled:cursor-not-allowed"
-                        >
-                          <ChevronsLeft size={20} />
-                        </button>
-                        <button
-                          onClick={() => handlePageChange(currentPage - 1)}
-                          disabled={currentPage === 1}
-                          className="p-2 rounded-lg text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 disabled:opacity-50 disabled:cursor-not-allowed"
-                        >
-                          <ChevronLeft size={20} />
-                        </button>
-                        <span className="text-sm text-gray-700 dark:text-gray-300">
-                          Página {currentPage} de {totalPages}
-                        </span>
-                        <button
-                          onClick={() => handlePageChange(currentPage + 1)}
-                          disabled={currentPage === totalPages}
-                          className="p-2 rounded-lg text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 disabled:opacity-50 disabled:cursor-not-allowed"
-                        >
-                          <ChevronRight size={20} />
-                        </button>
-                        <button
-                          onClick={() => handlePageChange(totalPages)}
-                          disabled={currentPage === totalPages}
-                          className="p-2 rounded-lg text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 disabled:opacity-50 disabled:cursor-not-allowed"
-                        >
-                          <ChevronsRight size={20} />
-                        </button>
-                      </div>
-                    </div>
-                  )}
-                </>
-              )}
-            </div>
-          </div>
-        </>
-      ) : (
-        <MonthlyExpensesList />
+      {/* Tab Content */}
+      {activeTab === 'overview' && (
+        <OverviewTab onAddExpense={handleAddExpense} />
       )}
 
-      {isPaymentModalOpen && selectedExpense && (
-        <PaymentModal
-          expense={selectedExpense}
-          onClose={() => {
-            setIsPaymentModalOpen(false);
-            setSelectedExpense(null);
-          }}
-          onSubmit={handlePaymentSubmit}
+      {activeTab === 'monthly' && (
+        <MonthlyExpensesTab
+          onEditExpense={handleEditExpense}
+          onDeleteExpense={handleDeleteExpense}
+          onPayExpense={handlePayExpense}
         />
       )}
 
-      {/* Dialog de Confirmação para Exclusão */}
-      {isDeleteDialogOpen && expenseToDelete && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-          <div className="bg-white dark:bg-gray-800 rounded-lg shadow-xl max-w-md w-full mx-4">
-            <div className="p-6">
-              <h2 className="text-xl font-semibold text-gray-900 dark:text-white mb-4">
-                Confirmar Exclusão
-              </h2>
-              <p className="text-gray-600 dark:text-gray-300 mb-6">
-                Tem certeza que deseja excluir a despesa "{expenseToDelete.description || 'Despesa sem descrição'}"?
-                Esta ação não pode ser desfeita.
-              </p>
-              <div className="flex justify-end space-x-3">
-                <button
-                  onClick={() => {
-                    setIsDeleteDialogOpen(false);
-                    setExpenseToDelete(null);
-                  }}
-                  className="px-4 py-2 text-sm font-medium text-gray-700 bg-gray-100 rounded-lg hover:bg-gray-200 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-gray-500 dark:bg-gray-700 dark:text-gray-300 dark:hover:bg-gray-600"
-                >
-                  Cancelar
-                </button>
-                <button
-                  onClick={handleDeleteExpense}
-                  className="px-4 py-2 text-sm font-medium text-white bg-red-600 rounded-lg hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500"
-                >
-                  Excluir
-                </button>
-              </div>
-            </div>
-          </div>
-        </div>
+      {activeTab === 'recurring' && (
+        <RecurringExpensesTab
+          onAddRecurring={handleAddRecurring}
+          onEditRecurring={handleEditRecurring}
+        />
       )}
+
+      {/* Modals */}
+      <AddExpenseModal
+        isOpen={isAddExpenseModalOpen}
+        onClose={() => setIsAddExpenseModalOpen(false)}
+        onSuccess={handleModalSuccess}
+      />
+
+      <RecurringExpenseModal
+        isOpen={isRecurringExpenseModalOpen}
+        onClose={() => {
+          setIsRecurringExpenseModalOpen(false);
+          setEditingRecurringExpense(null);
+        }}
+        onSuccess={handleModalSuccess}
+        editingExpense={editingRecurringExpense}
+      />
+
+      <PayRecurringModal
+        isOpen={isPayRecurringModalOpen}
+        onClose={() => {
+          setIsPayRecurringModalOpen(false);
+          setSelectedExpense(null);
+        }}
+        onSuccess={handleModalSuccess}
+        expense={selectedExpense}
+      />
     </div>
   );
 }

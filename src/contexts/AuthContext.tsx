@@ -36,6 +36,16 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const [planName, setPlanName] = useState<string | null>(null);
   const [isPremium, setIsPremium] = useState<boolean>(false);
   const [promptPlanSelection, setPromptPlanSelection] = useState<boolean>(false); // Added
+  
+  // Debug logs
+  console.log('🔍 AuthContext State:', {
+    isAuthenticated,
+    user: !!user,
+    isPremium,
+    subscriptionStatus,
+    planName,
+    isInitialized
+  });
 
   useEffect(() => {
     // Initialize systemConfigService and load organizationType
@@ -59,6 +69,29 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 
     // CORREÇÃO: A função checkInitialSession foi removida.
     // O onAuthStateChange é a única fonte de verdade e lida com a sessão inicial automaticamente.
+    
+    // Initialize immediately if no session is expected
+    const checkInitialSession = async () => {
+      try {
+        const { data: { session } } = await supabaseService.auth.getSession();
+        console.log('Initial session check:', session);
+        
+        if (session?.user) {
+          setSession(session);
+          setUser(session.user);
+          setIsAuthenticated(true);
+        } else {
+          setIsAuthenticated(false);
+        }
+      } catch (error) {
+        console.error('Error checking initial session:', error);
+        setIsAuthenticated(false);
+      } finally {
+        setIsInitialized(true);
+      }
+    };
+    
+    checkInitialSession();
 
     // Supabase auth state change listener
     const { data: authListener } = supabaseService.auth.onAuthStateChange(
@@ -125,6 +158,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
             console.error('Exception during metadata check/creation:', e);
             setSubscriptionStatus(null);
             setPlanName(null);
+            console.log('❌ Setting isPremium to false - exception during metadata check');
             setIsPremium(false);
             setPromptPlanSelection(false);
           }
@@ -141,6 +175,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
               console.error('Error fetching subscription:', subError);
               setSubscriptionStatus(null);
               setPlanName(null);
+              console.log('❌ Setting isPremium to false - error fetching subscription');
               setIsPremium(false);
               setPromptPlanSelection(false); // Default to no prompt on error
             } else if (sub) {
@@ -159,10 +194,11 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
                   console.log('Premium verification result:', data);
                   
                   if (data.isPremium) {
+                    console.log('✅ Setting isPremium to true');
                     setIsPremium(true);
                     console.log('Premium subscription verified successfully');
                   } else {
-                    console.warn('Premium verification failed:', data);
+                    console.warn('❌ Premium verification failed:', data);
                     setIsPremium(false);
                   }
                 } catch (verifyError) {
@@ -170,6 +206,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
                   setIsPremium(isActivePremium);
                 }
               } else {
+                console.log('❌ Setting isPremium to false - not active premium');
                 setIsPremium(false);
               }
               
@@ -178,6 +215,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
               console.log('No subscription record found for user (after metadata check). This might indicate an issue if user is new.');
               setSubscriptionStatus('inactive'); 
               setPlanName('free'); 
+              console.log('❌ Setting isPremium to false - no subscription found');
               setIsPremium(false);
               setPromptPlanSelection(true); // No sub found, prompt to select.
             }
@@ -194,10 +232,6 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
           setPlanName(null);
           setIsPremium(false);
           setPromptPlanSelection(false); // Reset prompt on sign out
-        }
-        
-        if (!isInitialized) {
-          setIsInitialized(true);
         }
       }
     );

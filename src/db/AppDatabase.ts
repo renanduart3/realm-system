@@ -5,7 +5,6 @@ import {
   SaleItem, 
   Transaction, 
   SystemUser, 
-  InvitationCode,
   Client,
   Person,
   SystemConfig,
@@ -13,9 +12,7 @@ import {
   Donor,
   Expense,
   BaseEntity,
-  // SubscriptionStatus, // Will be replaced by CachedSubscriptionStatus
-  ExpenseCategory,
-  CachedSubscriptionStatus
+  RecurringExpense
 } from '../model/types';
 
 export interface Insight extends BaseEntity {
@@ -68,7 +65,7 @@ export class AppDatabase extends Dexie {
   insights!: Table<Insight>;
   clients!: Table<Client>;
   transactions!: Table<Transaction>;
-  subscriptionStatus!: Table<CachedSubscriptionStatus>;
+  recurringExpenses!: Table<RecurringExpense>;
 
   // Sync tables
   syncMetadata!: Table<SyncMetadata>;
@@ -94,7 +91,6 @@ export class AppDatabase extends Dexie {
       insights: '++id, type, year, timestamp, [year+type]',
       clients: '++id',
       transactions: '++id, category, date, [date+category]',
-      subscriptionStatus: 'id',
 
       // Sync tables
       syncMetadata: 'id, year, sheetId, lastSync',
@@ -104,13 +100,77 @@ export class AppDatabase extends Dexie {
       syncInsights: '++id, year, type, timestamp, [year+type]'
     }).upgrade(tx => {
       // Migrate existing transactions to use the new category enum
-      return tx.transactions.toCollection().modify(transaction => {
+      return tx.table('transactions').toCollection().modify((transaction: any) => {
         if (transaction.financial_category_id) {
           // Convert old financial_category_id to new category enum
           transaction.category = 'others';
           delete transaction.financial_category_id;
         }
       });
+    });
+
+    this.version(3).stores({
+      // Main tables
+      systemConfig: 'id',
+      products: '++id',
+      income: '++id',
+      donors: '++id',
+      persons: '++id, name, email, document',
+      systemUsers: '++id',
+      sales: '++id',
+      saleItems: '++id, sale_id, product_service_id',
+      expenses: '++id',
+      insights: '++id, type, year, timestamp, [year+type]',
+      clients: '++id',
+      transactions: '++id, category, date, [date+category], recurring_expense_id, is_recurring',
+      recurringExpenses: '++id, category, active, dayOfMonthDue',
+
+      // Sync tables
+      syncMetadata: 'id, year, sheetId, lastSync',
+      syncSales: '++id, year, date, [year+date]',
+      syncIncome: '++id, year, date, [year+date]',
+      syncExpenses: '++id, year, date, [year+date]',
+      syncInsights: '++id, year, type, timestamp, [year+type]'
+    }).upgrade(async tx => {
+      try {
+        // Migrate recurring transactions to recurringExpenses
+        const recurringTransactions = await tx.table('transactions')
+          .where('is_recurring').equals(1).toArray();
+        
+        console.log(`🔄 Found ${recurringTransactions.length} recurring transactions to migrate`);
+        
+        for (const trans of recurringTransactions) {
+          try {
+            // Create recurring expense model
+            const recurringExpense: RecurringExpense = {
+              id: `recurring-${trans.id}`,
+              description: trans.description || 'Untitled Recurring Expense',
+              amount: trans.value,
+              dayOfMonthDue: trans.due_date ? new Date(trans.due_date).getDate() : 1,
+              category: 'others', // Default category, user can change later
+              active: true,
+              created_at: trans.created_at,
+              updated_at: trans.updated_at
+            };
+            
+            await tx.table('recurringExpenses').add(recurringExpense);
+            
+            // Link transaction to recurring expense
+            await tx.table('transactions').update(trans.id, {
+              recurring_expense_id: recurringExpense.id
+            });
+            
+            console.log(`✅ Migrated: ${recurringExpense.description}`);
+          } catch (error) {
+            console.error(`❌ Error migrating transaction ${trans.id}:`, error);
+          }
+        }
+        
+        console.log('✅ Migration completed successfully');
+      } catch (error) {
+        console.error('❌ Migration error:', error);
+        // Don't throw the error to prevent app crash
+      }
     });
   }
 }

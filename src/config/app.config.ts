@@ -18,7 +18,7 @@ export const appConfig = {
   isDevelopment: true,
   requireAuth: true,
   googleAuthEnabled: true,
-  useMockData: false,
+  useMockData: true,
 
   stripe: {
     publishableKey:
@@ -39,13 +39,12 @@ export const appConfig = {
           annualPriceId: "price_1RUGdDJOXSa4N9iA1Ng10apM", // <--- Cole o ID do preço anual
         },
         features: [
-          "Gestão completa de vendas",
+          "Gestão completa de negócios",
           "Relatórios avançados",
-          "Gestão de estoque",
-          "Gestão de clientes",
-          "Suporte prioritário",
-          "Backup automático",
+          "Inteligência de negócios",
           "Exportação de dados",
+          "Sincronização Google Sheets",
+          "Backup na nuvem",
         ],
         earlyBirdDiscount: {
           enabled: true,

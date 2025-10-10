@@ -53,7 +53,6 @@ export default function Sidebar({ isOpen, onClose }: SidebarProps) {
       label: isProfit ? 'Clientes' : 'Pessoas' // Updated
     },
     { path: '/settings', icon: <Settings size={20} />, label: 'Configurações' },
-    { path: '/componentes', icon: <Boxes size={20} />, label: 'Componentes' }, // Kept as is, assuming it's generic
   ];
 
   // Mobile overlay

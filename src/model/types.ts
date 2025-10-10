@@ -4,7 +4,12 @@ export interface BaseEntity {
     updated_at: string;
 }
 
-export type ExpenseCategory = 'services' | 'consume' | 'others';
+export type ExpenseCategory = 'services' | 'consume' | 'others'; // Legacy - manter para compatibilidade
+export type SpecificExpenseCategory = 
+  // Fixas
+  | 'rent' | 'water' | 'electricity' | 'internet' | 'phone' | 'gas'
+  // Variáveis  
+  | 'salary' | 'supply' | 'maintenance' | 'marketing' | 'others';
 export type PaymentStatus = 'pending' | 'confirmed' | 'failed' | 'cancelled';
 
 export interface SystemConfig extends BaseEntity {
@@ -64,7 +69,24 @@ export interface Sale {
     description?: string;
     created_at: string;
     updated_at: string;
+}
 
+export interface SaleItem extends BaseEntity {
+    sale_id: string;
+    product_service_id: string;
+    quantity: number;
+    unit_price: number;
+    total_price: number;
+}
+
+export interface Expense extends BaseEntity {
+    description: string;
+    amount: number;
+    date: string;
+    category: ExpenseCategory;
+    status: 'pending' | 'paid' | 'cancelled';
+    payment_method?: string;
+    notes?: string;
 }
 
 export interface Transaction extends BaseEntity {
@@ -81,6 +103,7 @@ export interface Transaction extends BaseEntity {
     status: 'pending' | 'paid' | 'cancelled';
     due_date?: string;
     notification_dismissed?: boolean;
+    recurring_expense_id?: string; // Vincula a um modelo recorrente
 }
 
 export interface SystemUser extends BaseEntity {
@@ -167,9 +190,39 @@ export interface Income extends BaseEntity {
 export interface RecurringExpense extends BaseEntity {
     description: string;
     amount: number;
-    due_date: number;
-    category: ExpenseCategory;
-    is_recurring: boolean;
+    dayOfMonthDue: number; // 1-31
+    category: SpecificExpenseCategory;
+    active: boolean;
+}
+
+// Despesa virtual gerada a partir de um modelo recorrente
+export interface VirtualExpense {
+    id: string; // ID do modelo recorrente + mês/ano
+    recurringExpenseId: string;
+    description: string;
+    amount: number;
+    category: SpecificExpenseCategory;
+    dueDate: string; // Data calculada para o mês/ano
+    month: number;
+    year: number;
+    isPaid: boolean; // Se já foi paga (existe transaction)
+    transactionId?: string; // ID da transaction se foi paga
+}
+
+// Despesa combinada (real + virtual)
+export interface CombinedExpense {
+    id: string;
+    type: 'real' | 'virtual';
+    description: string;
+    amount: number;
+    category: SpecificExpenseCategory | ExpenseCategory; // Pode ser legacy
+    dueDate: string;
+    status: 'pending' | 'paid' | 'cancelled';
+    isRecurring: boolean;
+    recurringExpenseId?: string;
+    transactionId?: string;
+    interestAmount?: number;
+    createdAt?: string;
 }
 
 // Interfaces para Insights
@@ -269,4 +322,37 @@ export interface PaymentError {
   code: string;
   message: string;
   timestamp: string;
+}
+
+// Sistema de Assinatura Premium
+export interface SubscriptionPlan {
+  id: string;
+  name: string;
+  type: 'free' | 'premium';
+  features: string[];
+  limitations: string[];
+  price?: number;
+  billing?: 'monthly' | 'yearly';
+}
+
+export interface PremiumReport {
+  id: string;
+  title: string;
+  description: string;
+  icon: string;
+  category: 'sales' | 'products' | 'clients' | 'analytics';
+  isAvailable: boolean;
+}
+
+export interface SubscriptionState {
+  isPremium: boolean;
+  plan: SubscriptionPlan | null;
+  features: {
+    canUseAdvancedReports: boolean;
+    canUseCloudBackup: boolean;
+    canUseBusinessIntelligence: boolean;
+    canUseGoogleSheetsSync: boolean;
+    canExportData: boolean;
+  };
+  isLoading: boolean;
 }

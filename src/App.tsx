@@ -10,6 +10,8 @@ import { ToastProvider } from "./contexts/ToastContext";
 import { AuthProvider } from "./contexts/AuthContext";
 import { mockDataService } from "./services/mockDataService";
 import { systemConfigService } from "./services/systemConfigService";
+import { migrateRecurringExpenses, checkMigrationStatus } from "./utils/migrations/migrateRecurringExpenses";
+import { resetDatabase, forceDatabaseReopen } from "./utils/resetDatabase";
 import { stripeService } from "./services/payment/StripeService";
 import Layout from "./components/Layout";
 import PaymentSuccess from "./pages/payment/PaymentSuccess";
@@ -41,7 +43,20 @@ function App() {
         console.log("Starting app initialization...");
 
         // Check if system is configured first
-        const config = await systemConfigService.getConfig();
+        let config;
+        try {
+          config = await systemConfigService.getConfig();
+        } catch (error) {
+          console.error("Error getting system config:", error);
+          // Try to reset and reopen database
+          const reopened = await forceDatabaseReopen();
+          if (reopened) {
+            config = await systemConfigService.getConfig();
+          } else {
+            throw error;
+          }
+        }
+        
         const configured = !!config?.is_configured;
         setIsConfigured(configured);
         console.log("System configuration checked:", configured);
@@ -56,6 +71,24 @@ function App() {
           // If configured, then initialize mock data if in dev mode
           await mockDataService.initializeMockData();
           console.log("Mock data initialization attempted.");
+
+          // Check and run migration for recurring expenses
+          try {
+            const migrationStatus = await checkMigrationStatus();
+            if (migrationStatus.needsMigration) {
+              console.log("🔄 Running recurring expenses migration...");
+              const migrationResult = await migrateRecurringExpenses();
+              if (migrationResult.success) {
+                console.log(`✅ Migration completed: ${migrationResult.migrated} expenses migrated`);
+              } else {
+                console.warn("⚠️ Migration completed with errors:", migrationResult.errors);
+              }
+            } else {
+              console.log("✅ No migration needed");
+            }
+          } catch (error) {
+            console.error("❌ Migration error:", error);
+          }
         }
       } catch (error) {
         console.error("Critical error during app initialization:", error);
@@ -149,16 +182,7 @@ function App() {
                         )
                       }
                     />
-                    <Route
-                      path="/componentes"
-                      element={
-                        !isConfigured ? (
-                          <Navigate to="/setup" replace />
-                        ) : (
-                          <ComponentsTest />
-                        )
-                      }
-                    />
+                  
                     <Route
                       path="/persons"
                       element={

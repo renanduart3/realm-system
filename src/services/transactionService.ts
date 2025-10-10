@@ -14,7 +14,8 @@ export const transactionService = {
     client_id?: string,
     person_id?: string,
     is_recurring?: boolean,
-    due_date?: string
+    due_date?: string,
+    recurring_expense_id?: string
   ): Promise<Transaction | null> {
     try {
       const newTransaction: Transaction = {
@@ -28,6 +29,7 @@ export const transactionService = {
         person_id,
         is_recurring,
         due_date,
+        recurring_expense_id,
         status: 'pending',
         created_at: new Date().toISOString(),
         updated_at: new Date().toISOString()
@@ -37,6 +39,50 @@ export const transactionService = {
       return newTransaction;
     } catch (error) {
       console.error("Error creating new transaction", error);
+      return null;
+    }
+  },
+
+  async createFromRecurring(
+    recurringExpenseId: string,
+    month: number,
+    year: number,
+    amount: number,
+    interest?: number
+  ): Promise<Transaction | null> {
+    try {
+      // Get recurring expense details
+      const recurringExpense = await db.recurringExpenses.get(recurringExpenseId);
+      if (!recurringExpense) {
+        throw new Error('Recurring expense not found');
+      }
+
+      // Calculate due date for this month
+      const dueDate = new Date(year, month - 1, recurringExpense.dayOfMonthDue);
+      
+      // Create transaction
+      const transaction = await this.createTransaction(
+        'others', // Legacy category, will be mapped
+        amount,
+        dueDate.toISOString().split('T')[0],
+        new Date().toTimeString().split(' ')[0],
+        recurringExpense.description,
+        undefined,
+        undefined,
+        true, // is_recurring
+        dueDate.toISOString().split('T')[0],
+        recurringExpenseId
+      );
+
+      if (transaction && interest) {
+        await db.transactions.update(transaction.id, {
+          interest_amount: interest
+        });
+      }
+
+      return transaction;
+    } catch (error) {
+      console.error("Error creating transaction from recurring expense:", error);
       return null;
     }
   },

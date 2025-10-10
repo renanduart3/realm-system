@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { systemConfigService } from '../services/systemConfigService';
 import { OrganizationSetup } from '../model/types';
 import { appConfig } from '../config/app.config';
+import { resetDatabase } from '../utils/resetDatabase';
 
 export default function SetupWizard() {
   const navigate = useNavigate();
@@ -13,6 +14,7 @@ export default function SetupWizard() {
     billing?: 'monthly' | 'yearly';
     price?: number;
   }>({ type: 'free' });
+  const [isResetting, setIsResetting] = useState(false);
 
   useEffect(() => {
     const loadInitialConfig = async () => {
@@ -33,6 +35,26 @@ export default function SetupWizard() {
     };
     loadInitialConfig();
   }, [navigate]);
+
+  const handleResetDatabase = async () => {
+    if (window.confirm('Tem certeza que deseja resetar o banco de dados? Esta ação irá apagar todos os dados e não pode ser desfeita.')) {
+      setIsResetting(true);
+      try {
+        const success = await resetDatabase();
+        if (success) {
+          alert('Banco de dados resetado com sucesso! A página será recarregada.');
+          window.location.reload();
+        } else {
+          alert('Erro ao resetar o banco de dados.');
+        }
+      } catch (error) {
+        console.error('Erro ao resetar banco:', error);
+        alert('Erro ao resetar o banco de dados.');
+      } finally {
+        setIsResetting(false);
+      }
+    }
+  };
 
   const handleFinish = async () => {
 
@@ -433,6 +455,23 @@ export default function SetupWizard() {
               </button>
             </div>
           </form>
+          
+          {/* Botão de Emergência */}
+          <div className="mt-8 pt-4 border-t border-gray-200 dark:border-gray-700">
+            <div className="text-center">
+              <p className="text-sm text-gray-500 dark:text-gray-400 mb-2">
+                Problemas com o banco de dados?
+              </p>
+              <button
+                type="button"
+                onClick={handleResetDatabase}
+                disabled={isResetting}
+                className="px-4 py-2 text-sm text-red-600 hover:text-red-800 hover:bg-red-50 dark:text-red-400 dark:hover:text-red-300 dark:hover:bg-red-900/20 rounded-lg border border-red-200 dark:border-red-700 transition-colors disabled:opacity-50"
+              >
+                {isResetting ? 'Resetando...' : 'Resetar Banco de Dados'}
+              </button>
+            </div>
+          </div>
         </div>
       </div>
     </div>

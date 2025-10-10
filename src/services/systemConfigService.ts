@@ -14,7 +14,16 @@ export const systemConfigService = {
         console.log('Database opened successfully');
       } catch (error) {
         console.error('Error initializing database:', error);
-        throw error;
+        // Try to close and reopen the database
+        try {
+          await db.close();
+          await db.open();
+          isInitialized = true;
+          console.log('Database reopened successfully');
+        } catch (retryError) {
+          console.error('Failed to reopen database:', retryError);
+          throw error;
+        }
       }
     } else {
       console.log('Database already initialized');
