@@ -12,6 +12,23 @@ export const clientService = {
     isWhatsApp?: boolean
   ): Promise<Client | null> {
     try {
+      // Normalize helpers
+      const normalizeDoc = (d?: string) => (d || '').replace(/\D/g, '').trim();
+      const normalizePhone = (p?: string) => (p || '').replace(/\D/g, '').trim();
+
+      const docNorm = normalizeDoc(document);
+      const phoneNorm = normalizePhone(phone);
+
+      // Check duplicates by document or phone
+      const all = await db.clients.toArray();
+      const duplicate = all.find(c => {
+        const cDoc = normalizeDoc(c.document);
+        const cPhone = normalizePhone(c.phone);
+        return (docNorm && cDoc && cDoc === docNorm) || (phoneNorm && cPhone && cPhone === phoneNorm);
+      });
+      if (duplicate) {
+        throw new Error('Cliente já existe com o mesmo documento ou telefone.');
+      }
       const newClient: Client = {
         id: uuidv4(),
         name,
@@ -54,8 +71,23 @@ export const clientService = {
 
   async editClient(client: Client): Promise<Client | null> {
     try {
+      // Prevent duplicates on edit
+      const normalizeDoc = (d?: string) => (d || '').replace(/\D/g, '').trim();
+      const normalizePhone = (p?: string) => (p || '').replace(/\D/g, '').trim();
+      const docNorm = normalizeDoc(client.document);
+      const phoneNorm = normalizePhone(client.phone);
+      const all = await db.clients.toArray();
+      const duplicate = all.find(c => c.id !== client.id && (
+        (docNorm && normalizeDoc(c.document) === docNorm) ||
+        (phoneNorm && normalizePhone(c.phone) === phoneNorm)
+      ));
+      if (duplicate) {
+        throw new Error('Já existe outro cliente com o mesmo documento ou telefone.');
+      }
+
       const updatedClient = {
         ...client,
+        isWhatsApp: Boolean(client.isWhatsApp),
         updated_at: new Date().toISOString()
       };
       

@@ -1,9 +1,12 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { SpecificExpenseCategory } from '../../model/types';
 import { transactionService } from '../../services/transactionService';
 import { financialCategoryService } from '../../services/financialCategoryService';
 import { useToast } from '../../hooks/useToast';
 import { X, DollarSign, Calendar, FileText } from 'lucide-react';
+import { useAuth } from '../../contexts/AuthContext';
+import { clientService } from '../../services/clientService';
+import SearchableSelect from '../SearchableSelect';
 
 interface AddExpenseModalProps {
   isOpen: boolean;
@@ -17,10 +20,22 @@ export default function AddExpenseModal({ isOpen, onClose, onSuccess }: AddExpen
     amount: '',
     category: 'others' as SpecificExpenseCategory,
     due_date: new Date().toISOString().split('T')[0],
-    status: 'pending' as 'pending' | 'paid'
+    status: 'pending' as 'pending' | 'paid',
+    client_id: ''
   });
   const [isSubmitting, setIsSubmitting] = useState(false);
   const { showToast } = useToast();
+  const { organizationType } = useAuth();
+  const [clients, setClients] = useState<{ id: string; name: string }[]>([]);
+
+  useEffect(() => {
+    const loadClients = async () => {
+      if (organizationType !== 'profit') return;
+      const list = await clientService.getAllClients();
+      setClients(list.map(c => ({ id: c.id, name: c.name })));
+    };
+    loadClients();
+  }, [organizationType]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -43,7 +58,7 @@ export default function AddExpenseModal({ isOpen, onClose, onSuccess }: AddExpen
         formData.due_date,
         new Date().toTimeString().split(' ')[0],
         formData.description,
-        undefined,
+        organizationType === 'profit' && formData.client_id ? formData.client_id : undefined,
         undefined,
         false, // Not recurring
         formData.status === 'pending' ? formData.due_date : undefined
@@ -78,7 +93,8 @@ export default function AddExpenseModal({ isOpen, onClose, onSuccess }: AddExpen
       amount: '',
       category: 'others',
       due_date: new Date().toISOString().split('T')[0],
-      status: 'pending'
+      status: 'pending',
+      client_id: ''
     });
   };
 
@@ -93,8 +109,8 @@ export default function AddExpenseModal({ isOpen, onClose, onSuccess }: AddExpen
 
   return (
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-      <div className="bg-white dark:bg-gray-800 rounded-lg shadow-xl max-w-md w-full mx-4">
-        <div className="flex items-center justify-between p-6 border-b border-gray-200 dark:border-gray-700">
+      <div className="bg-white dark:bg-gray-800 rounded-lg shadow-xl w-full max-w-3xl max-h-[90vh] overflow-y-auto mx-4">
+        <div className="flex items-center justify-between p-6 border-b border-gray-200 dark:border-gray-700 sticky top-0 bg-white dark:bg-gray-800 z-10">
           <h2 className="text-xl font-semibold text-gray-900 dark:text-white">
             Adicionar Despesa Pontual
           </h2>
@@ -107,7 +123,7 @@ export default function AddExpenseModal({ isOpen, onClose, onSuccess }: AddExpen
           </button>
         </div>
 
-        <form onSubmit={handleSubmit} className="p-6 space-y-4">
+        <form onSubmit={handleSubmit} className="p-6 space-y-4 md:space-y-0 md:grid md:grid-cols-2 md:gap-4">
           <div>
             <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
               <FileText className="w-4 h-4 inline mr-1" />
@@ -144,23 +160,17 @@ export default function AddExpenseModal({ isOpen, onClose, onSuccess }: AddExpen
             <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
               Categoria
             </label>
-            <div className="grid grid-cols-2 gap-2">
-              {financialCategoryService.getSpecificExpenseCategories().map(category => (
-                <button
-                  key={category}
-                  type="button"
-                  onClick={() => setFormData({ ...formData, category })}
-                  className={`p-3 rounded-lg text-sm font-medium transition-colors flex items-center ${
-                    formData.category === category
-                      ? 'bg-blue-500 text-white'
-                      : 'bg-gray-100 text-gray-700 dark:bg-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600'
-                  }`}
-                >
-                  <span className="mr-2">{financialCategoryService.getCategoryIcon(category)}</span>
+            <select
+              value={formData.category}
+              onChange={(e) => setFormData({ ...formData, category: e.target.value as SpecificExpenseCategory })}
+              className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 dark:text-white focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+            >
+              {financialCategoryService.getSpecificExpenseCategories().map((category) => (
+                <option key={category} value={category}>
                   {financialCategoryService.getCategoryLabel(category)}
-                </button>
+                </option>
               ))}
-            </div>
+            </select>
           </div>
 
           <div>
@@ -213,7 +223,20 @@ export default function AddExpenseModal({ isOpen, onClose, onSuccess }: AddExpen
             </div>
           </div>
 
-          <div className="flex justify-end space-x-3 pt-4">
+          {organizationType === 'profit' && (
+            <div>
+              <SearchableSelect
+                options={clients}
+                value={formData.client_id}
+                onChange={(value) => setFormData({ ...formData, client_id: value })}
+                placeholder="Selecione um cliente (opcional)"
+                label="Cliente (opcional)"
+                className="w-full"
+              />
+            </div>
+          )}
+
+          <div className="flex justify-end space-x-3 pt-4 md:col-span-2">
             <button
               type="button"
               onClick={handleClose}

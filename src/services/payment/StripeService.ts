@@ -82,6 +82,24 @@ class StripeService {
     if (error) throw error;
     return data;
   }
+
+  async cancelSubscription(): Promise<boolean> {
+    try {
+      const { data: { session } } = await supabaseService.auth.getSession();
+      if (!session) throw new Error('Usuário não autenticado');
+
+      const { data, error } = await supabaseService.functions.invoke('realm-stripe-function', {
+        body: { action: 'cancel-subscription' },
+        headers: { Authorization: `Bearer ${session.access_token}` }
+      });
+
+      if (error) throw new Error(error.message || 'Erro ao cancelar assinatura');
+      return Boolean(data?.success ?? true);
+    } catch (error) {
+      console.error('Erro ao cancelar assinatura:', error);
+      throw error;
+    }
+  }
 }
 
 export const stripeService = new StripeService();

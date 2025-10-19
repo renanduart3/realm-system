@@ -2,13 +2,16 @@ import React, { useState, useEffect } from 'react';
 import { Plus, Pencil, Trash2, Search, MessageCircle } from 'lucide-react';
 import { personService } from '../services/personService';
 import { clientService } from '../services/clientService';
+import { transactionService } from '../services/transactionService';
 import { Person, Client } from '../model/types';
 import { useAuth } from '../contexts/AuthContext';
+import { useToast } from '../hooks/useToast';
 
 type EntityType = Person | Client;
 
 export default function PersonClientManager() {
   const { organizationType } = useAuth();
+  const { showToast } = useToast();
   const [entities, setEntities] = useState<EntityType[]>([]);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingEntity, setEditingEntity] = useState<EntityType | null>(null);
@@ -24,6 +27,9 @@ export default function PersonClientManager() {
     notes: '',
     isWhatsApp: false
   });
+  const [isExpensesModalOpen, setIsExpensesModalOpen] = useState(false);
+  const [selectedClientForExpenses, setSelectedClientForExpenses] = useState<Client | null>(null);
+  const [clientExpenses, setClientExpenses] = useState<any[]>([]);
 
   const isNonProfit = organizationType === 'nonprofit';
   const entityName = isNonProfit ? 'Pessoas' : 'Clientes';
@@ -81,9 +87,11 @@ export default function PersonClientManager() {
       setIsModalOpen(false);
       setEditingEntity(null);
       resetForm();
-      loadEntities();
+      await loadEntities();
+      showToast(isNonProfit ? 'Pessoa salva com sucesso' : 'Cliente salvo com sucesso', 'success');
     } catch (error) {
       console.error(`Erro ao salvar ${isNonProfit ? 'pessoa' : 'cliente'}:`, error);
+      showToast('Falha ao salvar. Verifique os dados e tente novamente.', 'error');
     }
   };
 
@@ -112,6 +120,28 @@ export default function PersonClientManager() {
       }
       loadEntities();
     }
+  };
+
+  const openClientExpenses = async (client: Client) => {
+    setSelectedClientForExpenses(client);
+    const transactions = await transactionService.getAllTransactions();
+    const list = transactions.filter(t => t.client_id === client.id);
+    list.sort((a, b) => new Date(a.due_date || a.date).getTime() - new Date(b.due_date || b.date).getTime());
+    setClientExpenses(list);
+    setIsExpensesModalOpen(true);
+  };
+
+  const markClientExpensePaid = async (transactionId: string) => {
+    const { showConfirmDialog } = await import('../utils/confirmDialog');
+    const confirmed = await showConfirmDialog({
+      title: 'Quitar despesa',
+      message: 'Confirmar pagamento desta despesa?',
+      confirmText: 'Quitar',
+      type: 'info'
+    });
+    if (!confirmed) return;
+    await transactionService.updateTransactionStatus(transactionId, 'paid');
+    if (selectedClientForExpenses) openClientExpenses(selectedClientForExpenses);
   };
 
   const resetForm = () => {
@@ -187,9 +217,11 @@ export default function PersonClientManager() {
               <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
                 Nome
               </th>
-              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
-                Documento
-              </th>
+              {isNonProfit && (
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
+                  Documento
+                </th>
+              )}
               {!isNonProfit && (
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
                   Telefone
@@ -213,9 +245,11 @@ export default function PersonClientManager() {
                 <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900 dark:text-white">
                   {entity.name}
                 </td>
-                <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-300">
-                  {entity.document}
-                </td>
+                {isNonProfit && (
+                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-300">
+                    {entity.document}
+                  </td>
+                )}
                 {!isNonProfit && (
                   <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-300">
                     <div className="flex items-center space-x-2">
@@ -242,6 +276,14 @@ export default function PersonClientManager() {
                  
                 )}
                 <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
+                  {!isNonProfit && (
+                    <button
+                      onClick={() => openClientExpenses(entity as Client)}
+                      className="text-emerald-600 hover:text-emerald-900 dark:hover:text-emerald-400 mr-3"
+                    >
+                      Despesas
+                    </button>
+                  )}
                   <button
                     onClick={() => handleEdit(entity)}
                     className="text-blue-600 hover:text-blue-900 dark:hover:text-blue-400 mr-3"
@@ -264,11 +306,11 @@ export default function PersonClientManager() {
       {/* Modal de Formulário */}
       {isModalOpen && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4">
-          <div className="bg-white dark:bg-gray-800 rounded-lg p-6 w-full max-w-md">
+          <div className="bg-white dark:bg-gray-800 rounded-lg p-6 w-full max-w-3xl max-h-[90vh] overflow-y-auto">
             <h2 className="text-xl font-bold mb-4 text-gray-900 dark:text-white">
               {editingEntity ? `Editar ${isNonProfit ? 'Pessoa' : 'Cliente'}` : `${isNonProfit ? 'Nova Pessoa' : 'Novo Cliente'}`}
             </h2>
-            <form onSubmit={handleSubmit} className="space-y-4">
+            <form onSubmit={handleSubmit} className="space-y-4 md:space-y-0 md:grid md:grid-cols-2 md:gap-4">
               <div>
                 <label className="form-label">
                   Nome
@@ -387,6 +429,61 @@ export default function PersonClientManager() {
                 </button>
               </div>
             </form>
+          </div>
+        </div>
+      )}
+
+      {/* Modal de Despesas do Cliente */}
+      {isExpensesModalOpen && selectedClientForExpenses && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
+          <div className="bg-white dark:bg-gray-800 rounded-lg p-6 w-full max-w-3xl max-h-[90vh] overflow-y-auto">
+            <div className="flex items-center justify-between mb-4">
+              <h2 className="text-xl font-bold text-gray-900 dark:text-white">
+                Despesas de {selectedClientForExpenses.name}
+              </h2>
+              <button
+                onClick={() => { setIsExpensesModalOpen(false); setSelectedClientForExpenses(null); }}
+                className="text-gray-500 hover:text-gray-700 dark:text-gray-300"
+              >
+                Fechar
+              </button>
+            </div>
+
+            {clientExpenses.length === 0 ? (
+              <p className="text-gray-600 dark:text-gray-400">Nenhuma despesa vinculada a este cliente.</p>
+            ) : (
+              <div className="space-y-3">
+                {clientExpenses.map((tx: any) => {
+                  const isPending = tx.status === 'pending';
+                  const isOverdue = isPending && tx.due_date && new Date(tx.due_date) < new Date();
+                  return (
+                    <div key={tx.id} className="flex items-center justify-between p-3 border border-gray-200 dark:border-gray-700 rounded-lg">
+                      <div>
+                        <p className="font-medium text-gray-900 dark:text-white">{tx.description || 'Despesa'}</p>
+                        <p className="text-sm text-gray-500 dark:text-gray-400">
+                          {tx.due_date ? `Venc. ${new Date(tx.due_date).toLocaleDateString('pt-BR')}` : 'Sem previsão'}
+                          {isOverdue && <span className="ml-2 text-red-600 dark:text-red-400">Atrasado</span>}
+                        </p>
+                      </div>
+                      <div className="flex items-center space-x-4">
+                        <div className="text-right">
+                          <p className="font-semibold text-gray-900 dark:text-white">{formatCurrency(tx.value)}</p>
+                          <p className="text-sm text-gray-500 dark:text-gray-400">{tx.status === 'paid' ? 'Pago' : 'Pendente'}</p>
+                        </div>
+                        {isPending && (
+                          <button
+                            onClick={() => markClientExpensePaid(tx.id)}
+                            className="px-3 py-1 bg-green-600 text-white rounded hover:bg-green-700"
+                          >
+                            Quitar
+                          </button>
+                        )}
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
           </div>
         </div>
       )}

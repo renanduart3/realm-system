@@ -63,9 +63,27 @@ export default function Expenses() {
     }
   };
 
-  const handlePayExpense = (expense: CombinedExpense) => {
-    setSelectedExpense(expense);
-    setIsPayRecurringModalOpen(true);
+  const handlePayExpense = async (expense: CombinedExpense) => {
+    if (expense.type === 'virtual') {
+      setSelectedExpense(expense);
+      setIsPayRecurringModalOpen(true);
+      return;
+    }
+    // Real expense: simple confirm and mark as paid
+    const { showConfirmDialog } = await import('../utils/confirmDialog');
+    const confirmed = await showConfirmDialog({
+      title: 'Quitar despesa',
+      message: `Confirmar pagamento da despesa "${expense.description}"?`,
+      confirmText: 'Quitar',
+      type: 'info'
+    });
+    if (!confirmed) return;
+    const ok = await transactionService.updateTransactionStatus(expense.id, 'paid');
+    if (ok) {
+      showToast('Despesa marcada como paga', 'success');
+    } else {
+      showToast('Falha ao marcar como paga', 'error');
+    }
   };
 
   const handleModalSuccess = () => {

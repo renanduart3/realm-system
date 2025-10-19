@@ -869,7 +869,7 @@ const Settings = () => {
                   className="w-full py-2 px-4 bg-purple-600 hover:bg-purple-700 text-white rounded-lg font-medium transition-colors flex items-center justify-center gap-2 disabled:bg-purple-400"
                 >
                   {isCreatingSubscription ? <Loader2 className="w-5 h-5 animate-spin"/> : <CreditCard className="w-5 h-5" />}
-                  {(subscriptionStatus === 'active' && planName === 'premium' && currentInterval === 'year') ? 'Plano Atual' : ((isCurrentlyPremium || isDevMode) ? 'Mudar para Anual' : 'Assinar Anual')}
+                  {(isCurrentlyPremium || isDevMode) ? 'Mudar para Anual' : 'Assinar Anual'}
                 </button>
               </div>
             )}
@@ -1037,5 +1037,4 @@ const Settings = () => {
 };
 
 export default Settings;
-
 

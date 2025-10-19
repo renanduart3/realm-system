@@ -2,6 +2,8 @@ import React, { useState } from 'react';
 import { PremiumReport } from '../model/types';
 import { subscriptionService } from '../services/subscriptionService';
 import { useToast } from '../hooks/useToast';
+import { generateReportById } from '../reports';
+import { exportReport } from '../utils/exportUtils';
 import { 
   X, 
   Download, 
@@ -44,6 +46,10 @@ export default function ExportReportsModal({ isOpen, onClose }: ExportReportsMod
   const [selectedReports, setSelectedReports] = useState<string[]>([]);
   const [isExporting, setIsExporting] = useState(false);
   const [exportFormat, setExportFormat] = useState<'pdf' | 'excel' | 'csv'>('pdf');
+  const [startDate, setStartDate] = useState<string>('');
+  const [endDate, setEndDate] = useState<string>('');
+  const [granularity, setGranularity] = useState<'daily' | 'monthly'>('monthly');
+  const [inactivityDays, setInactivityDays] = useState<number>(60);
   const { showToast } = useToast();
 
   const reports = subscriptionService.getPremiumReports();
@@ -72,17 +78,26 @@ export default function ExportReportsModal({ isOpen, onClose }: ExportReportsMod
 
     setIsExporting(true);
     try {
-      // Simular exportação (em produção, isso seria uma chamada real para a API)
-      await new Promise(resolve => setTimeout(resolve, 2000));
-      
-      const selectedReportsData = reports.filter(report => selectedReports.includes(report.id));
-      const format = exportFormat.toUpperCase();
-      
-      showToast(
-        `${selectedReportsData.length} relatório(s) exportado(s) em formato ${format} com sucesso!`, 
-        'success'
-      );
-      
+      // Gerar e exportar cada relatório selecionado
+      let successCount = 0;
+      const ctx = {
+        startDate: startDate || undefined,
+        endDate: endDate || undefined,
+        granularity,
+        inactivityDays,
+      } as const;
+      for (const id of selectedReports) {
+        try {
+          const result = await generateReportById(id, ctx);
+          await exportReport(result, exportFormat);
+          successCount++;
+        } catch (err) {
+          console.error('Erro ao exportar relatório', id, err);
+        }
+      }
+
+      showToast(`${successCount} relatório(s) exportado(s)`, 'success');
+
       onClose();
       setSelectedReports([]);
     } catch (error) {
@@ -110,6 +125,73 @@ export default function ExportReportsModal({ isOpen, onClose }: ExportReportsMod
         </div>
 
         <div className="p-6 overflow-y-auto max-h-[calc(90vh-140px)]">
+          {/* Filtros (opcionais por relatório) */}
+          <div className="mb-6">
+            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-3">
+              Filtros
+            </label>
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              <div>
+                <label className="block text-xs text-gray-600 dark:text-gray-400 mb-1">Data Inicial</label>
+                <input
+                  type="date"
+                  value={startDate}
+                  onChange={(e) => setStartDate(e.target.value)}
+                  className="w-full border border-gray-300 dark:border-gray-600 rounded px-2 py-1 bg-white dark:bg-gray-700 text-sm"
+                />
+              </div>
+              <div>
+                <label className="block text-xs text-gray-600 dark:text-gray-400 mb-1">Data Final</label>
+                <input
+                  type="date"
+                  value={endDate}
+                  onChange={(e) => setEndDate(e.target.value)}
+                  className="w-full border border-gray-300 dark:border-gray-600 rounded px-2 py-1 bg-white dark:bg-gray-700 text-sm"
+                />
+              </div>
+              {selectedReports.includes('3') && (
+                <div>
+                  <label className="block text-xs text-gray-600 dark:text-gray-400 mb-1">Granularidade</label>
+                  <div className="flex items-center space-x-4">
+                    <label className="flex items-center text-sm">
+                      <input
+                        type="radio"
+                        name="granularity"
+                        value="monthly"
+                        checked={granularity === 'monthly'}
+                        onChange={() => setGranularity('monthly')}
+                        className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300"
+                      />
+                      <span className="ml-2">Mensal</span>
+                    </label>
+                    <label className="flex items-center text-sm">
+                      <input
+                        type="radio"
+                        name="granularity"
+                        value="daily"
+                        checked={granularity === 'daily'}
+                        onChange={() => setGranularity('daily')}
+                        className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300"
+                      />
+                      <span className="ml-2">Diária</span>
+                    </label>
+                  </div>
+                </div>
+              )}
+              {selectedReports.includes('7') && (
+                <div>
+                  <label className="block text-xs text-gray-600 dark:text-gray-400 mb-1">Dias de Inatividade</label>
+                  <input
+                    type="number"
+                    min={1}
+                    value={inactivityDays}
+                    onChange={(e) => setInactivityDays(Number(e.target.value) || 0)}
+                    className="w-full border border-gray-300 dark:border-gray-600 rounded px-2 py-1 bg-white dark:bg-gray-700 text-sm"
+                  />
+                </div>
+              )}
+            </div>
+          </div>
           {/* Formato de Exportação */}
           <div className="mb-6">
             <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-3">
