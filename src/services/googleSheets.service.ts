@@ -226,6 +226,44 @@ export class GoogleSheetsSyncService {
       return { success: false, message: error.message || 'Erro desconhecido na exportação.' };
     }
   }
+
+  // OAuth-enabled export directly to Google Sheets
+  async exportDataToGoogleSheetsWithOAuth(isPremium: boolean): Promise<{ success: boolean, message: string, spreadsheetId?: string }> {
+    if (!isPremium) {
+      return { success: false, message: 'Funcionalidade premium. Faça upgrade para utilizar.' };
+    }
+    try {
+      const { ensureSignedIn } = await import('./googleAuth');
+      const { createSpreadsheet, addSheetIfMissing, clearSheet, writeSheet } = await import('./googleSheetsClient');
+      const { buildSheetsPayload } = await import('../utils/sheetsPayload');
+      const { systemConfigService } = await import('./systemConfigService');
+      const payload = await buildSheetsPayload();
+
+      const year = new Date().getFullYear();
+      const cfg = await db.systemConfig.get('system-config');
+      const existingId = cfg?.sheet_ids?.[year];
+
+      await ensureSignedIn();
+
+      let spreadsheetId = existingId;
+      if (!spreadsheetId) {
+        const title = `Realm System (${year})`;
+        spreadsheetId = await createSpreadsheet(title);
+        await systemConfigService.updateSheetId(year, spreadsheetId);
+      }
+
+      for (const sheet of payload.sheets) {
+        await addSheetIfMissing(spreadsheetId!, sheet.title);
+        await clearSheet(spreadsheetId!, sheet.title);
+        await writeSheet(spreadsheetId!, sheet.title, sheet.headers, sheet.rows);
+      }
+
+      return { success: true, message: 'Dados exportados para o Google Sheets com sucesso.', spreadsheetId };
+    } catch (e: any) {
+      console.error('Erro exportando para Google Sheets (OAuth):', e);
+      return { success: false, message: e?.message || 'Falha ao exportar para Google Sheets.' };
+    }
+  }
 }
 
 export const googleSheetsSyncService = new GoogleSheetsSyncService();

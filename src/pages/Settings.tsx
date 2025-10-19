@@ -14,6 +14,7 @@ import { stripeService } from '../services/payment/StripeService';
 import { supabaseService } from '../services/supabaseService';
 import { v4 as uuidv4 } from 'uuid';
 import { formatCurrency } from '../utils/formatters';
+import { exportDatabase, downloadJsonDump, importDatabase } from '../utils/dbBackup';
 
 type SubscriptionStatus = 'active' | 'canceled' | 'past_due' | 'incomplete' | 'free' | 'none' | null;
 
@@ -38,6 +39,9 @@ const Settings = () => {
   const [earlyUsersCount] = useState(27);
   const [isResetting, setIsResetting] = useState(false);
   const [isEditMode, setIsEditMode] = useState(false);
+  const [isExporting, setIsExporting] = useState(false);
+  const [isImporting, setIsImporting] = useState(false);
+  const [isOAuthSyncing, setIsOAuthSyncing] = useState(false);
   const [stripePlans, setStripePlans] = useState<any[]>([]);
   const [isLoadingPlans, setIsLoadingPlans] = useState(true); // CORREÇÃO: Iniciar como true
   const [currentInterval, setCurrentInterval] = useState<'month' | 'year' | null>(null);
@@ -254,6 +258,76 @@ const Settings = () => {
       showToast('Erro ao resetar sistema', 'error');
     } finally {
       setIsResetting(false);
+    }
+  };
+
+  const handleExportBackup = async () => {
+    if (!isPremiumFromHook) {
+      showToast('Recurso disponível apenas no plano Premium.', 'error');
+      return;
+    }
+    try {
+      setIsExporting(true);
+      const dump = await exportDatabase();
+      downloadJsonDump(dump);
+      showToast('Backup exportado com sucesso.', 'success');
+    } catch (e: any) {
+      console.error('Erro ao exportar backup:', e);
+      showToast(e?.message || 'Erro ao exportar backup.', 'error');
+    } finally {
+      setIsExporting(false);
+    }
+  };
+
+  const handleImportBackup = async (file?: File) => {
+    if (!isPremiumFromHook) {
+      showToast('Recurso disponível apenas no plano Premium.', 'error');
+      return;
+    }
+    try {
+      if (!file) return;
+      setIsImporting(true);
+      const text = await file.text();
+      const dump = JSON.parse(text);
+      await importDatabase(dump);
+      showToast('Backup importado com sucesso. Recarregando...', 'success');
+      setTimeout(() => window.location.reload(), 600);
+    } catch (e: any) {
+      console.error('Erro ao importar backup:', e);
+      showToast(e?.message || 'Erro ao importar backup.', 'error');
+    } finally {
+      setIsImporting(false);
+    }
+  };
+
+  const handleGoogleSheetsOAuthSync = async () => {
+    setIsOAuthSyncing(true);
+    setSyncMessage(null);
+
+    if (!isPremiumFromHook) {
+      setSyncMessage({
+        type: 'error',
+        text: 'Esta é uma funcionalidade premium. Por favor, faça upgrade para utilizar a sincronização com Google Sheets.',
+      });
+      setIsOAuthSyncing(false);
+      return;
+    }
+
+    try {
+      const result = await (googleSheetsSyncService as any).exportDataToGoogleSheetsWithOAuth?.(isPremiumFromHook);
+      if (result?.success) {
+        setSyncMessage({ type: 'success', text: result.message });
+      } else {
+        setSyncMessage({ type: 'error', text: result?.message || 'Falha ao sincronizar via OAuth.' });
+      }
+    } catch (error: any) {
+      console.error('Google Sheets OAuth Sync Error:', error);
+      setSyncMessage({
+        type: 'error',
+        text: error.message || 'Erro inesperado durante a sincronização com Google Sheets (OAuth).',
+      });
+    } finally {
+      setIsOAuthSyncing(false);
     }
   };
 
@@ -943,6 +1017,27 @@ const Settings = () => {
                       </>
                     )}
                   </button>
+                  <button
+                    onClick={handleGoogleSheetsOAuthSync}
+                    disabled={isOAuthSyncing || !isPremiumFromHook}
+                    className={`px-4 py-2 rounded-lg font-medium flex items-center gap-2 ${
+                      isPremiumFromHook
+                        ? 'bg-green-600 text-white hover:bg-green-700'
+                        : 'bg-gray-100 dark:bg-gray-700 text-gray-400 cursor-not-allowed'
+                    }`}
+                  >
+                    {isOAuthSyncing ? (
+                      <>
+                        <Loader2 className="w-4 h-4 animate-spin" />
+                        OAuth...
+                      </>
+                    ) : (
+                      <>
+                        <Cloud className="w-4 h-4" />
+                        Sincronizar (OAuth)
+                      </>
+                    )}
+                  </button>
                 </div>
 
                 {!isPremiumFromHook && (
@@ -979,6 +1074,75 @@ const Settings = () => {
                   </div>
                 )}
               </div>
+            </div>
+            {/* Backup & Restore card (Premium) */}
+            <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-6 mt-6">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-3">
+                  <Cloud className="w-6 h-6 text-emerald-600" />
+                  <div>
+                    <h3 className="text-lg font-medium text-gray-900 dark:text-white">
+                      Backup e Restauração
+                    </h3>
+                    <p className="text-sm text-gray-500 dark:text-gray-400">
+                      Exporte e importe seu banco de dados (JSON)
+                    </p>
+                  </div>
+                </div>
+                <div className="flex items-center gap-2">
+                  <button
+                    onClick={handleExportBackup}
+                    disabled={isExporting || !isPremiumFromHook}
+                    className={`px-4 py-2 rounded-lg font-medium ${
+                      isPremiumFromHook
+                        ? 'bg-emerald-600 text-white hover:bg-emerald-700'
+                        : 'bg-gray-100 dark:bg-gray-700 text-gray-400 cursor-not-allowed'
+                    }`}
+                  >
+                    {isExporting ? (
+                      <span className="inline-flex items-center gap-2"><Loader2 className="w-4 h-4 animate-spin" /> Exportando...</span>
+                    ) : (
+                      'Exportar Backup (JSON)'
+                    )}
+                  </button>
+                  <label className={`px-4 py-2 rounded-lg font-medium cursor-pointer ${
+                      isPremiumFromHook
+                        ? 'bg-amber-600 text-white hover:bg-amber-700'
+                        : 'bg-gray-100 dark:bg-gray-700 text-gray-400 cursor-not-allowed'
+                    }`}>
+                    {isImporting ? (
+                      <span className="inline-flex items-center gap-2"><Loader2 className="w-4 h-4 animate-spin" /> Importando...</span>
+                    ) : (
+                      'Importar Backup (JSON)'
+                    )}
+                    <input
+                      type="file"
+                      accept="application/json"
+                      className="hidden"
+                      disabled={!isPremiumFromHook || isImporting}
+                      onChange={(e) => {
+                        const f = e.target.files?.[0];
+                        if (f) handleImportBackup(f);
+                        // reset input to allow re-selecting same file
+                        e.currentTarget.value = '';
+                      }}
+                    />
+                  </label>
+                </div>
+              </div>
+              {!isPremiumFromHook && (
+                <div className="mt-4 p-4 bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-200 dark:border-yellow-700 rounded-lg">
+                  <div className="flex items-start">
+                    <AlertTriangle className="w-5 h-5 text-yellow-600 dark:text-yellow-400 mt-0.5 mr-3" />
+                    <div>
+                      <h4 className="text-sm font-medium text-yellow-800 dark:text-yellow-300">Funcionalidade Premium</h4>
+                      <p className="text-sm text-yellow-700 dark:text-yellow-200 mt-1">
+                        Backup e restauração estão disponíveis apenas no plano Premium.
+                      </p>
+                    </div>
+                  </div>
+                </div>
+              )}
             </div>
           )}
           {activeTab === 'reset' && (
