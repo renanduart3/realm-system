@@ -19,6 +19,7 @@ interface AuthContextProps {
   subscriptionStatus: string | null;
   planName: string | null;
   isPremium: boolean;
+  isLifetime: boolean;
   promptPlanSelection: boolean; // Added
   refreshSubscription: () => Promise<void>;
 }
@@ -35,6 +36,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const [subscriptionStatus, setSubscriptionStatus] = useState<string | null>(null);
   const [planName, setPlanName] = useState<string | null>(null);
   const [isPremium, setIsPremium] = useState<boolean>(false);
+  const [isLifetime, setIsLifetime] = useState<boolean>(false);
   const [promptPlanSelection, setPromptPlanSelection] = useState<boolean>(false); // Added
   
   // Debug logs
@@ -177,6 +179,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
               setPlanName(null);
               console.log('❌ Setting isPremium to false - error fetching subscription');
               setIsPremium(false);
+              setIsLifetime(false);
               setPromptPlanSelection(false); // Default to no prompt on error
             } else if (sub) {
               console.log('Subscription data found:', sub);
@@ -193,21 +196,30 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 
                   console.log('Premium verification result:', data);
                   
-                  if (data.isPremium) {
+                  if (data?.status === 'lifetime') {
+                    setIsPremium(true);
+                    setIsLifetime(true);
+                    setSubscriptionStatus('active');
+                    setPlanName('vitalicio');
+                  } else if (data.isPremium) {
                     console.log('✅ Setting isPremium to true');
                     setIsPremium(true);
+                    setIsLifetime(false);
                     console.log('Premium subscription verified successfully');
                   } else {
                     console.warn('❌ Premium verification failed:', data);
                     setIsPremium(false);
+                    setIsLifetime(false);
                   }
                 } catch (verifyError) {
                   console.error('Error verifying premium subscription:', verifyError);
                   setIsPremium(isActivePremium);
+                  setIsLifetime(false);
                 }
               } else {
                 console.log('❌ Setting isPremium to false - not active premium');
                 setIsPremium(false);
+                setIsLifetime(false);
               }
               
               setPromptPlanSelection(sub.status === 'inactive'); // Prompt if inactive
@@ -217,6 +229,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
               setPlanName('free'); 
               console.log('❌ Setting isPremium to false - no subscription found');
               setIsPremium(false);
+              setIsLifetime(false);
               setPromptPlanSelection(true); // No sub found, prompt to select.
             }
           } catch (e) {
@@ -224,13 +237,35 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
             setSubscriptionStatus(null);
             setPlanName(null);
             setIsPremium(false);
+            setIsLifetime(false);
             setPromptPlanSelection(false); // Default to no prompt on error
+          }
+
+          // Verificar status premium via metadata (suporta vitalício)
+          try {
+            const { data, error } = await supabaseService.functions.invoke('check-premium-subscription');
+            if (!error && data) {
+              if (data.status === 'lifetime') {
+                setIsPremium(true);
+                setSubscriptionStatus('active');
+                setPlanName('vitalicio');
+                setPromptPlanSelection(false);
+              } else if (data.status === 'active' && (data.plan === 'premium' || data.planName === 'premium')) {
+                setIsPremium(true);
+                setSubscriptionStatus('active');
+                setPlanName('premium');
+                setPromptPlanSelection(false);
+              }
+            }
+          } catch (metaErr) {
+            console.error('Error checking premium metadata:', metaErr);
           }
         } else if (event === 'SIGNED_OUT') {
           // Clear subscription status on sign out
           setSubscriptionStatus(null);
           setPlanName(null);
           setIsPremium(false);
+          setIsLifetime(false);
           setPromptPlanSelection(false); // Reset prompt on sign out
         }
       }
@@ -328,8 +363,31 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         setPlanName(sub.plan_name);
         const isActivePremium = sub.status === 'active' && sub.plan_name === 'premium';
         setIsPremium(isActivePremium);
+        setIsLifetime(false);
       } else {
         console.log('No subscription record found for user during refresh.');
+      }
+
+      // Also check metadata-based premium (lifetime)
+      try {
+        const { data, error } = await supabaseService.functions.invoke('check-premium-subscription');
+        if (!error && data) {
+          if (data.status === 'lifetime') {
+            setIsPremium(true);
+            setSubscriptionStatus('active');
+            setPlanName('vitalicio');
+            setPromptPlanSelection(false);
+            setIsLifetime(true);
+          } else if (data.status === 'active' && (data.plan === 'premium' || data.planName === 'premium')) {
+            setIsPremium(true);
+            setSubscriptionStatus('active');
+            setPlanName('premium');
+            setPromptPlanSelection(false);
+            setIsLifetime(false);
+          }
+        }
+      } catch (metaErr) {
+        console.error('Error checking premium metadata (refresh):', metaErr);
       }
     } catch (e) {
       console.error('Exception during subscription refresh:', e);
@@ -352,6 +410,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       subscriptionStatus,
       planName,
       isPremium,
+      isLifetime,
       promptPlanSelection,
       refreshSubscription
     }}>

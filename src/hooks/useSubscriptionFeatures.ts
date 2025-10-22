@@ -10,10 +10,14 @@ export interface SubscriptionFeaturesState {
 }
 
 const useSubscriptionFeatures = (): SubscriptionFeaturesState => {
-  const { isAuthenticated, user } = useAuth();
+  const { isAuthenticated, user, isPremium: isPremiumFromAuth, isLifetime } = useAuth() as any;
 
   const features = useMemo(() => {
-    const isPremium = subscriptionService.isPremium();
+    // Fonte de verdade: AuthContext (premium via assinatura ou vitalício)
+    const premiumByContext = Boolean(isPremiumFromAuth || isLifetime);
+    // Fallback de dev: variável de ambiente
+    const premiumByEnv = subscriptionService.isPremium();
+    const isPremium = premiumByContext || premiumByEnv;
     
     return {
       isPremium,
@@ -34,7 +38,7 @@ const useSubscriptionFeatures = (): SubscriptionFeaturesState => {
         limitations: ['Sem relatórios avançados', 'Sem inteligência de negócio', 'Sem backup na nuvem', 'Sem exportação de dados']
       }
     };
-  }, [isAuthenticated, user]);
+  }, [isAuthenticated, user, isPremiumFromAuth, isLifetime]);
 
   return features;
 };

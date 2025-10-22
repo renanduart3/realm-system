@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { Menu, Bell, User, LogOut, Settings } from 'lucide-react';
+import { Menu, Bell, User, LogOut, Settings, Crown } from 'lucide-react';
 import { useTheme } from '../contexts/ThemeContext';
 import { Transaction } from '../model/types';
 import { transactionService } from '../services/transactionService';
@@ -15,7 +15,7 @@ interface NavbarProps {
 
 const Navbar: React.FC<NavbarProps> = ({ onMenuClick }) => {
   const { theme, toggleTheme } = useTheme();
-  const { user, logout } = useAuth();
+  const { user, logout, isPremium } = useAuth();
 
   // Helper function to get display name from Google user
   const getDisplayName = () => {
@@ -124,6 +124,17 @@ const Navbar: React.FC<NavbarProps> = ({ onMenuClick }) => {
 
         {/* Right side */}
         <div className="flex items-center space-x-4">
+          {/* Premium Upsell (show only if not premium) */}
+          {!isPremium && (
+            <Link
+              to="/settings?tab=subscription"
+              className="inline-flex items-center gap-2 px-3 py-2 rounded-lg text-yellow-700 bg-yellow-50 hover:bg-yellow-100 dark:text-yellow-300 dark:bg-yellow-900/20 dark:hover:bg-yellow-900/30"
+              title="Torne-se Premium"
+            >
+              <Crown size={20} />
+              <span className="text-sm font-medium">Seja Premium</span>
+            </Link>
+          )}
           {/* Notifications */}
           <div className="relative" ref={notificationsRef}>
             <button

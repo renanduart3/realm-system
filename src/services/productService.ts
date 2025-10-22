@@ -1,4 +1,4 @@
-import { db } from '../db/AppDatabase';
+import { getDbEngine } from '../db/engine';
 import { ProductService } from '../model/types';
 import { v4 as uuidv4 } from 'uuid';
 
@@ -24,7 +24,8 @@ export const productService = {
         updated_at: new Date().toISOString()
       };
 
-      await db.products.add(newProduct);
+      const engine = getDbEngine();
+      await engine.upsertProduct(newProduct);
       return newProduct;
     } catch (error) {
       console.error("Error creating new Product", error);
@@ -34,7 +35,8 @@ export const productService = {
 
   async getProductById(id: string): Promise<ProductService | null> {
     try {
-      const product = await db.products.get(id);
+      const engine = getDbEngine();
+      const product = await engine.getProductById(id);
       return product || null;
     } catch (error) {
       console.error("Error getting product", error);
@@ -44,7 +46,8 @@ export const productService = {
 
   async getAllProducts(): Promise<ProductService[]> {
     try {
-      const products = await db.products.toArray();
+      const engine = getDbEngine();
+      const products = await engine.listProducts();
       return products;
     } catch (error) {
       console.error("Error getting all products", error);
@@ -59,7 +62,8 @@ export const productService = {
         updated_at: new Date().toISOString()
       };
       
-      await db.products.put(updatedProduct);
+      const engine = getDbEngine();
+      await engine.upsertProduct(updatedProduct);
       return updatedProduct;
     } catch (error) {
       console.error("Error editing Product", error);
@@ -69,7 +73,8 @@ export const productService = {
 
   async deleteProduct(id: string): Promise<boolean> {
     try {
-      await db.products.delete(id);
+      const engine = getDbEngine();
+      await engine.deleteProduct(id);
       return true;
     } catch (error) {
       console.error("Error deleting product", error);

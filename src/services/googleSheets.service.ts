@@ -1,5 +1,7 @@
 import { appConfig } from '../config/app.config';
-import { db, INSIGHT_TYPES, Insight as DbInsightEntry } from '../db/AppDatabase';
+import { INSIGHT_TYPES, Insight as DbInsightEntry } from '../db/constants';
+import { getDbEngine } from '../db/engine';
+import { systemConfigService } from './systemConfigService';
 import {
   InsightData,
   DemandPrediction,
@@ -38,12 +40,15 @@ export class GoogleSheetsSyncService {
     }
 
     try {
-      const insight = await db.insights.where('type').equals(insightType).reverse().first();
+      const engine = getDbEngine();
+      const all = await engine.listInsights();
+      const insight = all.filter(i => i.type === insightType)
+        .sort((a,b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime())[0];
       if (!insight || this.isInsightStale(insight.timestamp)) {
         console.log(`Generating new insight for ${insightType} (stale or missing for premium user)`);
         const data = defaultGetter();
         if (data) {
-            await db.insights.put({
+            await engine.putInsight({
             id: `${insightType}-${new Date().getFullYear()}-${new Date().getMonth() + 1}-${new Date().getDate()}`, 
             type: insightType,
             data,
@@ -236,11 +241,10 @@ export class GoogleSheetsSyncService {
       const { ensureSignedIn } = await import('./googleAuth');
       const { createSpreadsheet, addSheetIfMissing, clearSheet, writeSheet } = await import('./googleSheetsClient');
       const { buildSheetsPayload } = await import('../utils/sheetsPayload');
-      const { systemConfigService } = await import('./systemConfigService');
       const payload = await buildSheetsPayload();
 
       const year = new Date().getFullYear();
-      const cfg = await db.systemConfig.get('system-config');
+      const cfg = await systemConfigService.getConfig();
       const existingId = cfg?.sheet_ids?.[year];
 
       await ensureSignedIn();
@@ -267,3 +271,4 @@ export class GoogleSheetsSyncService {
 }
 
 export const googleSheetsSyncService = new GoogleSheetsSyncService();
+

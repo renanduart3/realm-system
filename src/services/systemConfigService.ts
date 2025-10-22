@@ -1,4 +1,4 @@
-import { db } from '../db/AppDatabase';
+import { getDbEngine } from '../db/engine';
 import { SystemConfig, OrganizationSetup } from '../model/types';
 
 let isInitialized = false;
@@ -8,16 +8,19 @@ export const systemConfigService = {
     console.log('Initializing systemConfigService...');
     if (!isInitialized) {
       try {
-        console.log('Opening database...');
-        await db.open();
+        console.log('Opening database (engine)...');
+        const engine = getDbEngine();
+        await engine.ensureDatabaseExists();
+        await engine.open();
         isInitialized = true;
         console.log('Database opened successfully');
       } catch (error) {
         console.error('Error initializing database:', error);
         // Try to close and reopen the database
         try {
-          await db.close();
-          await db.open();
+          const engine = getDbEngine();
+          await engine.close();
+          await engine.open();
           isInitialized = true;
           console.log('Database reopened successfully');
         } catch (retryError) {
@@ -35,7 +38,8 @@ export const systemConfigService = {
       console.log('Getting system config...');
       await this.initialize();
       
-      const config = await db.systemConfig.get('system-config');
+      const engine = getDbEngine();
+      const config = await engine.getSystemConfig('system-config');
       console.log('Current config:', config);
       
       if (!config) {
@@ -52,7 +56,7 @@ export const systemConfigService = {
           created_at: new Date().toISOString(),
           updated_at: new Date().toISOString()
         };
-        await db.systemConfig.put(defaultConfig);
+        await engine.putSystemConfig(defaultConfig);
         console.log('Default config created:', defaultConfig);
         return defaultConfig;
       }
@@ -86,13 +90,15 @@ export const systemConfigService = {
       console.log('Saving updated config:', updatedConfig);
       
       // Limpar a tabela antes de salvar
-      await db.systemConfig.clear();
+      const engineClear = getDbEngine();
+      await engineClear.clearSystemConfig();
       
       // Salvar a nova configuração
-      await db.systemConfig.put(updatedConfig);
+      const engine2 = getDbEngine();
+      await engine2.putSystemConfig(updatedConfig as any);
       
       // Verificar se a configuração foi salva corretamente
-      const savedConfig = await db.systemConfig.get('system-config');
+      const savedConfig = await (getDbEngine()).getSystemConfig('system-config');
       console.log('Saved config:', savedConfig);
       
       if (!savedConfig) {
@@ -128,7 +134,8 @@ export const systemConfigService = {
         updated_at: new Date().toISOString()
       };
 
-      await db.systemConfig.put(updatedConfig);
+      const engine2 = getDbEngine();
+      await engine2.putSystemConfig(updatedConfig as any);
       console.log('Sheet ID updated successfully');
       return true;
     } catch (error) {
@@ -137,3 +144,5 @@ export const systemConfigService = {
     }
   }
 };
+
+

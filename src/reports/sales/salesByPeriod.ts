@@ -1,4 +1,4 @@
-import { db } from '../../db/AppDatabase';
+import { getDbEngine } from '../../db/engine';
 import { ReportGenerator, ReportContext } from '../types';
 
 const formatMonth = (dateStr: string) => {
@@ -19,7 +19,7 @@ const formatDay = (dateStr: string) => {
 export const generateSalesByPeriodReport: ReportGenerator = async (ctx?: ReportContext) => {
   const granularity = ctx?.granularity || 'monthly';
 
-  let sales = await db.sales.toArray();
+  let sales = await getDbEngine().listSales();
   if (ctx?.startDate) {
     const sd = new Date(ctx.startDate);
     sales = sales.filter((s) => new Date(s.date) >= sd);

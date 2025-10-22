@@ -29,6 +29,12 @@ export default function Layout({ children }: LayoutProps) {
 
   // Effect for redirecting to subscription status page if needed
   useEffect(() => {
+    // Enforce authentication for all app pages within Layout
+    if (!isAuthenticated && location.pathname !== '/login') {
+      navigate('/login', { replace: true });
+      return;
+    }
+
     if (isAuthenticated && promptPlanSelection && location.pathname !== '/subscription' && location.pathname !== '/login') {
       console.log('Redirecting to /subscription due to promptPlanSelection.');
       // Optionally, show a toast message here:

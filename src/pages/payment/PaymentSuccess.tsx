@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { stripeService } from "../../services/payment/StripeService";
+import { systemConfigService } from "../../services/systemConfigService";
 import { useAuth } from "../../contexts/AuthContext";
 
 const PaymentSuccess = () => {
@@ -16,6 +17,15 @@ const PaymentSuccess = () => {
         try {
           await stripeService.handlePaymentSuccess(sessionId);
           await refreshSubscription(); // Refresh subscription status
+          // Mark system configured after successful payment
+          try {
+            const cfg = await systemConfigService.getConfig();
+            if (cfg && !cfg.is_configured) {
+              await systemConfigService.saveConfig({ id: 'system-config', is_configured: true, configured_at: new Date().toISOString() } as any);
+            }
+          } catch (e) {
+            console.error('Failed to mark system configured after payment:', e);
+          }
           setMessage("Payment Successful! Redirecting to your subscription...");
           setIsError(false);
           setTimeout(() => {

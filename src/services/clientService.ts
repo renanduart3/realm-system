@@ -1,4 +1,4 @@
-import { db } from '../db/AppDatabase';
+import { getDbEngine } from '../db/engine';
 import { Client } from '../model/types';
 import { v4 as uuidv4 } from 'uuid';
 
@@ -20,7 +20,8 @@ export const clientService = {
       const phoneNorm = normalizePhone(phone);
 
       // Check duplicates by document or phone
-      const all = await db.clients.toArray();
+      const engine = getDbEngine();
+      const all = await engine.listClients();
       const duplicate = all.find(c => {
         const cDoc = normalizeDoc(c.document);
         const cPhone = normalizePhone(c.phone);
@@ -41,7 +42,7 @@ export const clientService = {
         updated_at: new Date().toISOString()
       };
 
-      await db.clients.add(newClient);
+      await engine.upsertClient(newClient);
       return newClient;
     } catch (error) {
       console.error("ClientService - Error creating new client", error);
@@ -51,7 +52,8 @@ export const clientService = {
 
   async getClientById(id: string): Promise<Client | null> {
     try {
-      const client = await db.clients.get(id);
+      const engine = getDbEngine();
+      const client = await engine.getClientById(id);
       return client || null;
     } catch (error) {
       console.error("ClientService - Error getting client", error);
@@ -61,7 +63,8 @@ export const clientService = {
 
   async getAllClients(): Promise<Client[]> {
     try {
-      const clients = await db.clients.toArray();
+      const engine = getDbEngine();
+      const clients = await engine.listClients();
       return clients;
     } catch (error) {
       console.error("ClientService - Error getting all clients", error);
@@ -76,7 +79,8 @@ export const clientService = {
       const normalizePhone = (p?: string) => (p || '').replace(/\D/g, '').trim();
       const docNorm = normalizeDoc(client.document);
       const phoneNorm = normalizePhone(client.phone);
-      const all = await db.clients.toArray();
+      const engine = getDbEngine();
+      const all = await engine.listClients();
       const duplicate = all.find(c => c.id !== client.id && (
         (docNorm && normalizeDoc(c.document) === docNorm) ||
         (phoneNorm && normalizePhone(c.phone) === phoneNorm)
@@ -91,7 +95,7 @@ export const clientService = {
         updated_at: new Date().toISOString()
       };
       
-      await db.clients.put(updatedClient);
+      await engine.upsertClient(updatedClient);
       return updatedClient;
     } catch (error) {
       console.error("ClientService - Error editing client", error);
@@ -101,7 +105,8 @@ export const clientService = {
 
   async deleteClient(id: string): Promise<boolean> {
     try {
-      await db.clients.delete(id);
+      const engine = getDbEngine();
+      await engine.deleteClient(id);
       return true;
     } catch (error) {
       console.error("ClientService - Error deleting client", error);

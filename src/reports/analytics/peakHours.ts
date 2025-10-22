@@ -1,8 +1,8 @@
-import { db } from '../../db/AppDatabase';
+import { getDbEngine } from '../../db/engine';
 import { ReportGenerator } from '../types';
 
 export const generatePeakHoursReport: ReportGenerator = async () => {
-  const sales = await db.sales.toArray();
+  const sales = await getDbEngine().listSales();
 
   const map = new Map<string, { hour: string; count: number; total: number }>();
 
@@ -37,4 +37,3 @@ export const generatePeakHoursReport: ReportGenerator = async () => {
     summary: { peakHour: peak.hour, peakCount: peak.salesCount },
   };
 };
-

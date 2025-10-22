@@ -1,4 +1,4 @@
-import { db } from '../db/AppDatabase';
+import { getDbEngine } from '../db/engine';
 import { CombinedExpense, VirtualExpense, Transaction, RecurringExpense } from '../model/types';
 import { recurringExpenseService } from './recurringExpenseService';
 import { transactionService } from './transactionService';
@@ -145,10 +145,7 @@ export const expenseAggregatorService = {
 
       if (transaction) {
         // Link to recurring expense
-        await db.transactions.update(transaction.id, {
-          recurring_expense_id: recurringExpenseId,
-          interest_amount: interest
-        });
+        const engine = getDbEngine(); await engine.updateTransactionFields(transaction.id, { recurring_expense_id: recurringExpenseId, interest_amount: interest });
       }
 
       return transaction;
@@ -214,3 +211,4 @@ export const expenseAggregatorService = {
     }
   }
 };
+

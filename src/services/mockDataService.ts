@@ -1,5 +1,5 @@
 import { appConfig } from '../config/app.config';
-import { db, INSIGHT_TYPES, InsightType } from '../db/AppDatabase';
+import { INSIGHT_TYPES } from '../db/constants';import { getDbEngine } from '../db/engine';
 import mockData from '../mocks/dataMock.json';
 import { v4 as uuidv4 } from 'uuid';
 import { 
@@ -22,7 +22,7 @@ export const mockDataService = {
       console.log('Starting mock data initialization...');
 
       // Check if insights are already initialized
-      const existingInsights = await db.insights.count();
+      const existingInsights = await (getDbEngine() as any).insights.count();
       console.log('🔍 Existing insights count:', existingInsights);
       if (existingInsights > 0) {
         console.log('✅ Mock insights already initialized');
@@ -35,7 +35,7 @@ export const mockDataService = {
         organization_type: 'profit',
         theme: 'light'
       };
-      await db.systemConfig.put(systemConfig);
+      await (getDbEngine() as any).systemConfig.put(systemConfig);
 
       // Initialize products
       for (const product of mockData.products) {
@@ -45,7 +45,7 @@ export const mockDataService = {
           type: 'Product' as const,
           active: true
         };
-        await db.products.add(productService);
+        await (getDbEngine() as any).products.add(productService);
       }
 
       // Initialize sales
@@ -58,7 +58,7 @@ export const mockDataService = {
           value: sale.value,
           client_id: sale.client_id
         };
-        await db.sales.add(saleData);
+        await (getDbEngine() as any).sales.add(saleData);
       }
 
       // Initialize income
@@ -75,7 +75,7 @@ export const mockDataService = {
           created_at: income.created_at,
           updated_at: income.updated_at
         };
-        await db.income.add(incomeData);
+        await (getDbEngine() as any).income.add(incomeData);
       }
 
       // Initialize donors
@@ -85,7 +85,7 @@ export const mockDataService = {
           id: uuidv4(),
           type: donor.type as 'individual' | 'company' | 'organization'
         };
-        await db.donors.add(donorData);
+        await (getDbEngine() as any).donors.add(donorData);
       }
 
       // Initialize expense transactions
@@ -102,7 +102,7 @@ export const mockDataService = {
           created_at: new Date().toISOString(),
           updated_at: new Date().toISOString()
         };
-        await db.transactions.add(transaction);
+        await (getDbEngine() as any).transactions.add(transaction);
       }
 
       // Initialize clients
@@ -111,7 +111,7 @@ export const mockDataService = {
           ...client,
           id: uuidv4()
         };
-        await db.clients.add(clientData);
+        await (getDbEngine() as any).clients.add(clientData);
       }
 
       // Initialize users
@@ -122,7 +122,7 @@ export const mockDataService = {
           role: 'master',
           nature_type: 'profit'
         };
-        await db.systemUsers.add(userData);
+        await (getDbEngine() as any).systemUsers.add(userData);
       }
 
       // Initialize insights with correct types
@@ -149,7 +149,7 @@ export const mockDataService = {
       for (const [key, data] of Object.entries(insights)) {
         if (data && insightMap[key]) {
             console.log(`🔍 Adding insight: ${key} -> ${insightMap[key]}`);
-            await db.insights.add({
+            await (getDbEngine() as any).insights.add({
                 id: uuidv4(),
                 type: insightMap[key],
                 data,
@@ -168,3 +168,5 @@ export const mockDataService = {
     }
   }
 };
+
+

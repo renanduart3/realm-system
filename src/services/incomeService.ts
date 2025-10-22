@@ -1,4 +1,4 @@
-import { db } from '../db/AppDatabase';
+import { getDbEngine } from '../db/engine';
 import { Income, TransactionType } from '../model/types';
 import { v4 as uuidv4 } from 'uuid';
 
@@ -27,20 +27,20 @@ export const incomeService = {
       updated_at: new Date().toISOString()
     };
 
-    await db.income.add(income);
+    await getDbEngine().upsertIncome(income);
     return income;
   },
 
   async getAllIncome(): Promise<Income[]> {
-    return await db.income.toArray();
+    return await getDbEngine().listIncome();
   },
 
   async getIncomeById(id: string): Promise<Income | undefined> {
-    return await db.income.get(id);
+    return await getDbEngine().getIncomeById(id) as any;
   },
 
   async updateIncome(id: string, data: Partial<Income>): Promise<Income | undefined> {
-    const income = await db.income.get(id);
+    const income = await getDbEngine().getIncomeById(id) as any;
     if (!income) return undefined;
 
     const updatedIncome: Income = {
@@ -49,26 +49,31 @@ export const incomeService = {
       updated_at: new Date().toISOString()
     };
 
-    await db.income.put(updatedIncome);
+    await getDbEngine().upsertIncome(updatedIncome);
     return updatedIncome;
   },
 
   async deleteIncome(id: string): Promise<void> {
-    await db.income.delete(id);
+    await getDbEngine().deleteIncome(id);
   },
 
   async getIncomeByType(type: TransactionType): Promise<Income[]> {
-    return await db.income.where('type').equals(type).toArray();
+    const all = await getDbEngine().listIncome();
+    return all.filter(i => i.type === type);
   },
 
   async getIncomeByDateRange(startDate: string, endDate: string): Promise<Income[]> {
-    return await db.income
-      .where('date')
-      .between(startDate, endDate, true, true)
-      .toArray();
+    const all = await getDbEngine().listIncome();
+    const s = new Date(startDate);
+    const e = new Date(endDate);
+    return all.filter(i => {
+      const d = new Date(i.date);
+      return d >= s && d <= e;
+    });
   },
 
   async getRecurringIncome(): Promise<Income[]> {
-    return await db.income.where('is_recurring').equals(1).toArray();
+    const all = await getDbEngine().listIncome();
+    return all.filter(i => i.is_recurring);
   }
 }; 

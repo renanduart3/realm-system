@@ -1,4 +1,5 @@
-import { db, INSIGHT_TYPES } from '../db/AppDatabase';
+import { INSIGHT_TYPES } from '../db/constants';
+import { getDbEngine } from '../db/engine';
 import { InsightData } from '../model/types';
 
 export const insightsService = {
@@ -6,7 +7,8 @@ export const insightsService = {
     console.log('🔍 insightsService.getInsights called');
     try {
       console.log('📡 Fetching insights from database...');
-      const insights = await db.insights.toArray();
+      const engine = getDbEngine();
+      const insights = await engine.listInsights();
       console.log('📊 Raw insights from DB:', insights);
 
       // Initialize the structure for InsightData with all possible fields
@@ -57,3 +59,5 @@ export const insightsService = {
 };
 
 export default insightsService;
+
+
