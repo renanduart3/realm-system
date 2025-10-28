@@ -7,6 +7,7 @@ import { supabaseService } from '../../services/supabaseService';
 import { stripeService } from '../../services/payment/StripeService';
 import { formatCurrency } from '../../utils/formatters';
 import { safeInvokeFunction } from '../../utils/safeInvoke';
+import { planCacheService } from '../../services/planCacheService';
 
 type Interval = 'month' | 'year' | null;
 
@@ -28,27 +29,39 @@ const SubscriptionPlansSection: React.FC = () => {
   const [isCreatingSubscription, setIsCreatingSubscription] = useState(false);
   const [redeemCode, setRedeemCode] = useState('');
   const [isRedeeming, setIsRedeeming] = useState(false);
+  const [selectedInterval, setSelectedInterval] = useState<'month' | 'year'>('month');
 
   const isDevMode = import.meta.env.VITE_APP_SUBSCRIPTION_PREMIUM === 'true';
   const isCurrentlyPremium = useMemo(() => isDevMode || (subscriptionStatus === 'active' && planName === 'premium'), [isDevMode, subscriptionStatus, planName]);
+
+  // Helper to avoid hanging requests: reject if a request takes too long
+  const withTimeout = async <T,>(promise: Promise<T>, ms = 30000): Promise<T> => {
+    return new Promise<T>((resolve, reject) => {
+      const timer = setTimeout(() => {
+        reject(new Error('Tempo esgotado ao iniciar o checkout. Tente novamente.'));
+      }, ms);
+      promise
+        .then((val) => { clearTimeout(timer); resolve(val); })
+        .catch((err) => { clearTimeout(timer); reject(err); });
+    });
+  };
 
   useEffect(() => {
     let mounted = true;
     const loadPlansFromStripe = async () => {
       setIsLoadingPlans(true);
       try {
-        const data = await safeInvokeFunction(
-          supabaseService.functions,
-          'get-stripe-plans',
-          undefined,
-          { cacheKey: 'get-stripe-plans', ttlMs: 5 * 60_000, maxRetries: 2, retryDelayBaseMs: 500 }
-        );
+        const cached = await planCacheService.ensurePlans({ ttlMs: 7 * 24 * 60 * 60 * 1000 });
         if (!mounted) return;
-        setStripePlans(data || []);
-        setUseFallback(!(data && data.length));
+        // Normalize to array form for rendering ease
+        const arr: any[] = [];
+        if (cached.monthly) arr.push({ name: cached.monthly.name, priceId: cached.monthly.priceId, price: cached.monthly.price, interval: 'month' });
+        if (cached.annual) arr.push({ name: cached.annual.name, priceId: cached.annual.priceId, price: cached.annual.price, interval: 'year' });
+        setStripePlans(arr);
+        setUseFallback(cached.source !== 'supabase');
       } catch (error: any) {
         if (!mounted) return;
-        console.error('Error fetching plans from Stripe:', error);
+        console.error('Error loading cached plans:', error);
         setUseFallback(true);
       } finally {
         if (!mounted) return;
@@ -58,14 +71,15 @@ const SubscriptionPlansSection: React.FC = () => {
     loadPlansFromStripe();
 
     (async () => {
+      if (!isCurrentlyPremium) { setCurrentInterval(null); return; }
       try {
         const data = await safeInvokeFunction(
           supabaseService.functions,
           'check-premium-subscription',
           undefined,
-          { cacheKey: 'check-premium-subscription', ttlMs: 60_000, maxRetries: 1, retryDelayBaseMs: 400 }
+          { cacheKey: 'check-premium-subscription', ttlMs: 5 * 24 * 60 * 60_000, maxRetries: 1, retryDelayBaseMs: 400 }
         );
-        if (mounted && data?.isPremium && (data.interval === 'month' || data.interval === 'year')) {
+        if (mounted && (data?.interval === 'month' || data?.interval === 'year')) {
           setCurrentInterval(data.interval);
         } else if (mounted) {
           setCurrentInterval(null);
@@ -87,7 +101,11 @@ const SubscriptionPlansSection: React.FC = () => {
     }
     try {
       setIsCreatingSubscription(true);
-      const stripeSession = await stripeService.createSubscription({ priceId, email: user.email });
+      // Protect against functions that hang or slow network by enforcing a timeout
+      const stripeSession = await withTimeout(
+        stripeService.createSubscription({ priceId, email: user.email }),
+        30000
+      );
       if (stripeSession?.url) {
         window.location.href = stripeSession.url;
       } else {
@@ -95,7 +113,13 @@ const SubscriptionPlansSection: React.FC = () => {
       }
     } catch (error: any) {
       console.error('Error creating Stripe subscription session:', error);
-      showToast(error.message || 'Erro ao iniciar assinatura. Tente novamente mais tarde.', 'error');
+      const msg = String(error?.message || 'Erro ao iniciar assinatura. Tente novamente mais tarde.');
+      // Mensagem amigável para possível cold start da função
+      if (/Tempo esgotado|timeout/i.test(msg)) {
+        showToast('Servidor iniciando. Tente novamente em alguns segundos.', 'warning');
+      } else {
+        showToast(msg, 'error');
+      }
     } finally {
       setIsCreatingSubscription(false);
     }
@@ -170,6 +194,8 @@ const SubscriptionPlansSection: React.FC = () => {
     ? (fallbackAnnualId ? { name: 'Premium', price: fallbackAnnualPrice, priceId: fallbackAnnualId } : null)
     : stripePlans.find(p => p.interval === 'year');
   const isPotentiallyEarlyBird = (subscriptionStatus === 'active' && planName === 'free');
+  const chosenPlan: any = selectedInterval === 'year' ? annualPlan : monthlyPlan;
+  const saving = monthlyPlan?.price && annualPlan?.price ? Math.max(0, (monthlyPlan.price * 12) - annualPlan.price) : 0;
 
   return (
     <div>
@@ -243,41 +269,45 @@ const SubscriptionPlansSection: React.FC = () => {
 
       {!isLifetime && (
         <div className="grid grid-cols-1 gap-6">
-          {monthlyPlan && (
-            <div className="border dark:border-gray-700 rounded-lg p-6 flex flex-col">
-              <h3 className="text-lg font-semibold text-gray-900 dark:text-white">{monthlyPlan.name} Mensal</h3>
-              <p className="text-2xl font-bold mt-2">{monthlyPlan.price ? formatCurrency(monthlyPlan.price) : '—'}<span className="text-sm font-normal text-gray-500">/mês</span></p>
-              <ul className="space-y-2 my-6 text-sm flex-grow">
-                {appConfig.subscription.plans.premium.features.map(f => <li key={f} className="flex items-center"><Check className="w-4 h-4 mr-2 text-green-500"/>{f}</li>)}
-              </ul>
-              <button
-                onClick={() => (isCurrentlyPremium || isDevMode) ? handleChangePlan((monthlyPlan as any).priceId) : handleSubscribe((monthlyPlan as any).priceId)}
-                disabled={isCreatingSubscription || !(monthlyPlan as any).priceId || (subscriptionStatus === 'active' && planName === 'premium' && currentInterval === 'month')}
-                className="w-full py-2 px-4 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-medium transition-colors flex items-center justify-center gap-2 disabled:bg-blue-400"
-              >
-                {isCreatingSubscription ? <Loader2 className="w-5 h-5 animate-spin"/> : <CreditCard className="w-5 h-5" />}
-                {(subscriptionStatus === 'active' && planName === 'premium' && currentInterval === 'month') ? 'Plano Atual' : ((isCurrentlyPremium || isDevMode) ? 'Mudar para Mensal' : 'Assinar Mensal')}
-              </button>
+          <div className={`border rounded-lg p-6 flex flex-col ${selectedInterval === 'year' ? 'border-purple-500' : 'dark:border-gray-700'}`}>
+            <div className="flex items-center justify-between">
+              <h3 className="text-lg font-semibold text-gray-900 dark:text-white">Premium</h3>
+              <div className="inline-flex rounded-lg overflow-hidden border">
+                <button type="button" className={`px-3 py-1 text-sm ${selectedInterval === 'month' ? 'bg-blue-600 text-white' : 'bg-white dark:bg-gray-800 dark:text-gray-300'}`} onClick={() => setSelectedInterval('month')}>Mensal</button>
+                <button type="button" className={`px-3 py-1 text-sm ${selectedInterval === 'year' ? 'bg-blue-600 text-white' : 'bg-white dark:bg-gray-800 dark:text-gray-300'}`} onClick={() => setSelectedInterval('year')}>Anual</button>
+              </div>
             </div>
-          )}
-          {annualPlan && (
-            <div className="border-2 border-purple-500 rounded-lg p-6 flex flex-col relative">
-              <div className="absolute top-0 -translate-y-1/2 left-1/2 -translate-x-1/2 px-3 py-1 bg-purple-500 text-white text-xs font-bold rounded-full">MAIS POPULAR</div>
-              <h3 className="text-lg font-semibold text-gray-900 dark:text-white">{annualPlan.name} Anual</h3>
-              <p className="text-2xl font-bold mt-2">{annualPlan.price ? formatCurrency(annualPlan.price) : '—'}<span className="text-sm font-normal text-gray-500">/ano</span></p>
-              <ul className="space-y-2 my-6 text-sm flex-grow">
-                {appConfig.subscription.plans.premium.features.map(f => <li key={f} className="flex items-center"><Check className="w-4 h-4 mr-2 text-green-500"/>{f}</li>)}
-              </ul>
-              <button
-                onClick={() => (isCurrentlyPremium || isDevMode) ? handleChangePlan((annualPlan as any).priceId) : handleSubscribe((annualPlan as any).priceId)}
-                disabled={isCreatingSubscription || !(annualPlan as any).priceId}
-                className="w-full py-2 px-4 bg-purple-600 hover:bg-purple-700 text-white rounded-lg font-medium transition-colors flex items-center justify-center gap-2 disabled:bg-purple-400"
-              >
-                {isCreatingSubscription ? <Loader2 className="w-5 h-5 animate-spin"/> : <CreditCard className="w-5 h-5" />}
-                {(subscriptionStatus === 'active' && planName === 'premium' && currentInterval === 'year') ? 'Plano Atual' : ((isCurrentlyPremium || isDevMode) ? 'Mudar para Anual' : 'Assinar Anual')}
-              </button>
-            </div>
-          )}
+            <p className="text-2xl font-bold mt-2">
+              {chosenPlan?.price ? formatCurrency(chosenPlan.price) : '—'}
+              <span className="text-sm font-normal text-gray-500">/{selectedInterval === 'year' ? 'ano' : 'mês'}</span>
+            </p>
+            {selectedInterval === 'year' && saving > 0 && (
+              <div className="mt-2 p-2 bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-700 rounded-lg">
+                <div className="flex items-center justify-between">
+                  <span className="text-sm text-green-800 dark:text-green-300 font-medium">💰 Economia de {formatCurrency(saving)}</span>
+                  <span className="text-xs text-green-600 dark:text-green-400">Economize no anual</span>
+                </div>
+                <p className="text-xs text-green-700 dark:text-green-400 mt-1">Comparado ao mensal</p>
+              </div>
+            )}
+            <ul className="space-y-2 my-6 text-sm flex-grow">
+              {appConfig.subscription.plans.premium.features.map((f: string) => (
+                <li key={f} className="flex items-center"><Check className="w-4 h-4 mr-2 text-green-500"/>{f}</li>
+              ))}
+            </ul>
+            <button
+              onClick={() => {
+                const planId = (chosenPlan as any)?.priceId;
+                if (!planId) return;
+                (isCurrentlyPremium || isDevMode) ? handleChangePlan(planId) : handleSubscribe(planId);
+              }}
+              disabled={isCreatingSubscription || !(chosenPlan as any)?.priceId || (subscriptionStatus === 'active' && planName === 'premium' && currentInterval === (selectedInterval === 'year' ? 'year' : 'month'))}
+              className={`w-full py-2 px-4 ${selectedInterval === 'year' ? 'bg-purple-600 hover:bg-purple-700' : 'bg-blue-600 hover:bg-blue-700'} text-white rounded-lg font-medium transition-colors flex items-center justify-center gap-2 disabled:bg-blue-400`}
+            >
+              {isCreatingSubscription ? <Loader2 className="w-5 h-5 animate-spin"/> : <CreditCard className="w-5 h-5" />}
+              {(subscriptionStatus === 'active' && planName === 'premium' && currentInterval === (selectedInterval === 'year' ? 'year' : 'month')) ? 'Plano Atual' : ((isCurrentlyPremium || isDevMode) ? (selectedInterval === 'year' ? 'Mudar para Anual' : 'Mudar para Mensal') : (selectedInterval === 'year' ? 'Assinar Anual' : 'Assinar Mensal'))}
+            </button>
+          </div>
         </div>
       )}
 

@@ -1,6 +1,7 @@
 import React, { createContext, useState, useContext, ReactNode, useEffect } from 'react';
 import { User as SupabaseUser, AuthChangeEvent, Session as SupabaseSession } from '@supabase/supabase-js';
 import { supabaseService } from '../services/supabaseService'; // Import the supabase client
+import { safeInvokeFunction } from '../utils/safeInvoke';
 import { systemConfigService } from '../services/systemConfigService'; // Keep for organizationType for now
 
 // Define the shape of the user object you want to expose from the context.
@@ -241,16 +242,21 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
             setPromptPlanSelection(false); // Default to no prompt on error
           }
 
-          // Verificar status premium via metadata (suporta vitalício)
+          // Verificar status premium via metadata (suporta vitalício) com cache
           try {
-            const { data, error } = await supabaseService.functions.invoke('check-premium-subscription');
-            if (!error && data) {
+            const data = await safeInvokeFunction(
+              supabaseService.functions,
+              'check-premium-subscription',
+              undefined,
+              { cacheKey: 'check-premium-subscription', ttlMs: 5 * 24 * 60 * 60_000, maxRetries: 1, retryDelayBaseMs: 400 }
+            );
+            if (data) {
               if (data.status === 'lifetime') {
                 setIsPremium(true);
                 setSubscriptionStatus('active');
                 setPlanName('vitalicio');
                 setPromptPlanSelection(false);
-              } else if (data.status === 'active' && (data.plan === 'premium' || data.planName === 'premium')) {
+              } else if (data.status === 'active' && (data.plan === 'premium' || data.planName === 'premium' || data.isPremium)) {
                 setIsPremium(true);
                 setSubscriptionStatus('active');
                 setPlanName('premium');
@@ -258,7 +264,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
               }
             }
           } catch (metaErr) {
-            console.error('Error checking premium metadata:', metaErr);
+            console.error('Error checking premium metadata (cached):', metaErr);
           }
         } else if (event === 'SIGNED_OUT') {
           // Clear subscription status on sign out

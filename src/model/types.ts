@@ -356,3 +356,18 @@ export interface SubscriptionState {
   };
   isLoading: boolean;
 }
+
+// Cache local de planos do Stripe (armazenado no SystemConfig/OrganizationSetup)
+export interface CachedPlanInfo {
+  name: string;
+  priceId: string;
+  price: number | null;
+  interval: 'month' | 'year';
+}
+
+export interface CachedPlans {
+  monthly?: CachedPlanInfo | null;
+  annual?: CachedPlanInfo | null;
+  lastUpdated?: string; // ISO date
+  source?: 'supabase' | 'appConfig' | 'unknown';
+}
