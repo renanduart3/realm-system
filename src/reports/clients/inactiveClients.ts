@@ -1,10 +1,10 @@
-import { db } from '../../db/AppDatabase';
+import { getDbEngine } from '../../db/engine';
 import { ReportGenerator, ReportContext } from '../types';
 
 export const generateInactiveClientsReport: ReportGenerator = async (ctx?: ReportContext) => {
   const thresholdDays = ctx?.inactivityDays ?? 60;
-  const clients = await db.clients.toArray();
-  const sales = await db.sales.toArray();
+  const clients = await (getDbEngine() as any).listClients?.() || [];
+  const sales = await getDbEngine().listSales();
 
   const lastSaleMap = new Map<string, string | undefined>();
 
@@ -49,4 +49,3 @@ export const generateInactiveClientsReport: ReportGenerator = async (ctx?: Repor
     summary: { thresholdDays, totalInactive: rows.length },
   };
 };
-

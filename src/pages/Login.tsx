@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 // import { LogIn } from 'lucide-react'; // LogIn icon not used, can be removed
 import { useAuth } from '../contexts/AuthContext';
+import { systemConfigService } from '../services/systemConfigService';
 // import { appConfig } from '../config/app.config'; // appConfig not used
 
 export default function Login() {
@@ -12,9 +13,39 @@ export default function Login() {
     // handleInputChange, handleSubmit, handleForgotPassword, handleCreateAccount removed
 
     useEffect(() => {
-        if (isAuthenticated) {
+        const routeAfterLogin = async () => {
+            if (!isAuthenticated) return;
+            // Retomar assinatura se houver intenção
+            try {
+                const pending = localStorage.getItem('pendingPriceId');
+                if (pending) {
+                    navigate('/settings', { replace: true });
+                    return;
+                }
+            } catch {}
+
+            // Se pediu redirecionamento pós-login específico
+            try {
+                const post = localStorage.getItem('postLoginRedirect');
+                if (post) {
+                    localStorage.removeItem('postLoginRedirect');
+                    navigate(post, { replace: true });
+                    return;
+                }
+            } catch {}
+
+            // Verificar se o sistema já está configurado
+            try {
+                const cfg = await systemConfigService.getConfig();
+                if (!cfg?.is_configured) {
+                    navigate('/setup', { replace: true });
+                    return;
+                }
+            } catch {}
+
             navigate('/', { replace: true });
-        }
+        };
+        routeAfterLogin();
     }, [isAuthenticated, navigate]);
 
     const handleGoogleSignIn = async () => {

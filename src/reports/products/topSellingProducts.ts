@@ -1,10 +1,10 @@
-import { db } from '../../db/AppDatabase';
+import { getDbEngine } from '../../db/engine';
 import { ReportGenerator } from '../types';
 
 export const generateTopSellingProductsReport: ReportGenerator = async () => {
   // Aggregate quantities and revenue from saleItems joined with products
-  const items = await db.saleItems.toArray();
-  const products = await db.products.toArray();
+  const items = await getDbEngine().listSaleItems();
+  const products = await (getDbEngine() as any).listProducts?.() || [];
 
   const map = new Map<string, { productId: string; name: string; quantity: number; revenue: number }>();
 
@@ -38,4 +38,3 @@ export const generateTopSellingProductsReport: ReportGenerator = async () => {
     rows,
   };
 };
-

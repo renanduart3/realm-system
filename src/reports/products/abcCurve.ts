@@ -1,9 +1,9 @@
-import { db } from '../../db/AppDatabase';
+import { getDbEngine } from '../../db/engine';
 import { ReportGenerator } from '../types';
 
 export const generateABCCurveReport: ReportGenerator = async () => {
-  const items = await db.saleItems.toArray();
-  const products = await db.products.toArray();
+  const items = await getDbEngine().listSaleItems();
+  const products = await (getDbEngine() as any).listProducts?.() || [];
 
   const revenueMap = new Map<string, { name: string; revenue: number }>();
 
@@ -49,4 +49,3 @@ export const generateABCCurveReport: ReportGenerator = async () => {
     summary: { totalRevenue: Number(total.toFixed(2)) },
   };
 };
-

@@ -1,13 +1,10 @@
-import { db } from '../db/AppDatabase';
+import { getDbEngine } from '../db/engine';
 import { SystemUser, InvitationCode } from '../model/types';
 import { v4 as uuidv4 } from 'uuid';
 
 export const getUserByUsername = async (username: string): Promise<SystemUser | null> => {
   try {
-    const user = await db.systemUsers
-      .where('username')
-      .equals(username)
-      .first();
+    const user = (await getDbEngine().listSystemUsers()).find(u => u.username === username);
     return user || null;
   } catch (error) {
     console.error("Error getting user by username", error);
@@ -35,7 +32,7 @@ export const userService = {
         updated_at: new Date().toISOString()
       };
       
-      await db.systemUsers.add(user);
+      await getDbEngine().upsertSystemUser(user);
       return user;
     } catch (error) {
       console.error("Error creating user", error);
@@ -45,10 +42,7 @@ export const userService = {
 
   async getInvitationCode(code: string): Promise<InvitationCode | null> {
     try {
-      const invitationCode = await db.invitationCodes
-        .where('code')
-        .equals(code)
-        .first();
+      const invitationCode = await getDbEngine().getInvitationCodeByCode(code);
       return invitationCode || null;
     } catch (error) {
       console.error("Error getting invitation code", error);
@@ -59,7 +53,7 @@ export const userService = {
 
 const getSystemUserById = async (id: string): Promise<SystemUser | null> => {
   try {
-    const user = await db.systemUsers.get(id);
+    const user = await getDbEngine().getSystemUserById(id);
     return user || null;
   } catch (error) {
     console.error("Error getting user by id", error);
@@ -76,7 +70,7 @@ const createInvitationCode = async (user_gerente_id: string): Promise<Invitation
       created_at: new Date().toISOString()
     };
 
-    await db.invitationCodes.add(newInvitationCode);
+    await getDbEngine().addInvitationCode(newInvitationCode);
     return newInvitationCode;
   } catch (error) {
     console.error("Error creating invitation code", error);
@@ -86,10 +80,7 @@ const createInvitationCode = async (user_gerente_id: string): Promise<Invitation
 
 const getInvitationCodeByCode = async (code: string): Promise<InvitationCode | null> => {
   try {
-    const invitationCode = await db.invitationCodes
-      .where('code')
-      .equals(code)
-      .first();
+    const invitationCode = await getDbEngine().getInvitationCodeByCode(code);
     return invitationCode || null;
   } catch (error) {
     console.error("Error getting invitation code", error);

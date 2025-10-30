@@ -1,4 +1,4 @@
-import { db } from '../../db/AppDatabase';
+import { getDbEngine } from '../../db/engine';
 import { ReportGenerator } from '../types';
 
 function scoreByQuantiles(values: number[], value: number): number {
@@ -16,8 +16,8 @@ function scoreByQuantiles(values: number[], value: number): number {
 }
 
 export const generateRFVRankingReport: ReportGenerator = async () => {
-  const clients = await db.clients.toArray();
-  const sales = await db.sales.toArray();
+  const clients = await (getDbEngine() as any).listClients?.() || [];
+  const sales = await getDbEngine().listSales();
 
   // Prepare per client metrics
   const byClient = new Map<string, { name: string; lastDate?: string; freq: number; total: number }>();
@@ -84,4 +84,3 @@ export const generateRFVRankingReport: ReportGenerator = async () => {
     rows,
   };
 };
-

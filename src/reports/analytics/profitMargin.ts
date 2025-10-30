@@ -1,12 +1,12 @@
-import { db } from '../../db/AppDatabase';
+import { getDbEngine } from '../../db/engine';
 import { ReportGenerator } from '../types';
 
 // Observação: Sem custo de produto no modelo atual, usamos uma margem estimada.
 const MARGIN_RATE = 0.3; // 30% estimado
 
 export const generateProfitMarginReport: ReportGenerator = async () => {
-  const items = await db.saleItems.toArray();
-  const products = await db.products.toArray();
+  const items = await getDbEngine().listSaleItems();
+  const products = await (getDbEngine() as any).listProducts?.() || [];
 
   const map = new Map<string, { name: string; revenue: number; estMargin: number }>();
 
@@ -55,4 +55,3 @@ export const generateProfitMarginReport: ReportGenerator = async () => {
     },
   };
 };
-

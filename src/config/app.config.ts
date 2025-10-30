@@ -18,7 +18,9 @@ export const appConfig = {
   isDevelopment: true,
   requireAuth: true,
   googleAuthEnabled: true,
-  useMockData: true,
+  useMockData: false,
+  // Database engine: 'indexeddb' for web now; switch to 'sqlite' for Electron build
+  dbEngine: 'sqlite' as 'indexeddb' | 'sqlite',
 
   stripe: {
     publishableKey:
@@ -55,3 +57,4 @@ export const appConfig = {
     },
   },
 };
+

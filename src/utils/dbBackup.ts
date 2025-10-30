@@ -1,4 +1,4 @@
-import { db } from '../db/AppDatabase';
+import { getDbEngine } from '../db/engine';
 
 export interface TableSchemaSummary {
   name: string;
@@ -34,32 +34,39 @@ function getTableSchemaSummary(table: any): TableSchemaSummary {
 }
 
 export async function exportDatabase(): Promise<DatabaseExportDump> {
-  // Enumerate all known tables and dump rows. Keep sync tables too to allow full restore.
-  const tables = (db as any).tables as any[];
+  const engine: any = getDbEngine();
   const data: Record<string, any[]> = {};
-
-  for (const table of tables) {
-    try {
-      data[table.name] = await table.toArray();
-    } catch (e) {
-      console.warn(`Failed to export table ${table.name}:`, e);
-      data[table.name] = [];
-    }
+  const collectors: Record<string, () => Promise<any[]>> = {
+    systemConfig: async () => {
+      const cfg = await engine.getSystemConfig?.('system-config');
+      return cfg ? [cfg] : [];
+    },
+    products: () => engine.listProducts?.() || Promise.resolve([]),
+    clients: () => engine.listClients?.() || Promise.resolve([]),
+    persons: () => engine.listPersons?.() || Promise.resolve([]),
+    income: () => engine.listIncome?.() || Promise.resolve([]),
+    donors: () => engine.listDonors?.() || Promise.resolve([]),
+    financialCategories: () => engine.listFinancialCategories?.() || Promise.resolve([]),
+    systemUsers: () => engine.listSystemUsers?.() || Promise.resolve([]),
+    sales: () => engine.listSales?.() || Promise.resolve([]),
+    saleItems: () => engine.listSaleItems?.() || Promise.resolve([]),
+    expenses: () => engine.listExpenses?.() || Promise.resolve([]),
+    transactions: () => engine.listTransactions?.() || Promise.resolve([]),
+    recurringExpenses: () => engine.listRecurringExpenses?.() || Promise.resolve([]),
+    insights: () => engine.listInsights?.() || Promise.resolve([]),
+    subscriptionStatus: async () => {
+      const s = await engine.getSubscriptionStatus?.('currentUser');
+      return s ? [s] : [];
+    },
+  };
+  for (const [name, fn] of Object.entries(collectors)) {
+    try { data[name] = await fn(); } catch { data[name] = []; }
   }
-
   const dump: DatabaseExportDump = {
-    meta: {
-      app: 'realm-system',
-      dbName: db.name,
-      version: (db as any).verno ?? 0,
-      exportedAt: new Date().toISOString(),
-    },
-    schema: {
-      tables: tables.map(getTableSchemaSummary),
-    },
+    meta: { app: 'realm-system', dbName: 'sqlite', version: 1, exportedAt: new Date().toISOString() },
+    schema: { tables: Object.keys(data).map(n => ({ name: n })) },
     data,
   };
-
   return dump;
 }
 
@@ -99,4 +106,3 @@ export function downloadJsonDump(dump: DatabaseExportDump, filename = 'realm-sys
   document.body.removeChild(link);
   URL.revokeObjectURL(url);
 }
-

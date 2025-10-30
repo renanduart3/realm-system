@@ -1,4 +1,4 @@
-import { db } from '../db/AppDatabase';
+import { getDbEngine } from '../db/engine';
 import { Sale } from '../model/types'; // Ensure correct imports
 import { v4 as uuidv4 } from 'uuid';
 
@@ -29,7 +29,8 @@ export const saleService = {
         updated_at: new Date().toISOString()
       };
 
-      await db.sales.add(newSale);
+      const engine = getDbEngine();
+      await engine.upsertSale(newSale);
       return newSale;
     } catch (error) {
       console.error("Error creating new sale", error);
@@ -58,7 +59,8 @@ export const saleService = {
         created_at: new Date().toISOString(),
         updated_at: new Date().toISOString()
       };
-      await db.sales.add(newSale);
+      const engine = getDbEngine();
+      await engine.upsertSale(newSale);
       return newSale;
     } catch (error) {
       console.error("Error creating new quick sale", error);
@@ -68,7 +70,8 @@ export const saleService = {
 
   async getSaleById(id: string): Promise<Sale | null> {
     try {
-      const sale = await db.sales.get(id);
+      const engine = getDbEngine();
+      const sale = await engine.getSaleById(id);
       return sale || null;
     } catch (error) {
       console.error("Error getting sale", error);
@@ -78,7 +81,8 @@ export const saleService = {
 
   async getAllSales(): Promise<Sale[]> {
     try {
-      const sales = await db.sales.toArray();
+      const engine = getDbEngine();
+      const sales = await engine.listSales();
       return sales;
     } catch (error) {
       console.error("Error getting all sales", error);
@@ -93,7 +97,8 @@ export const saleService = {
         updated_at: new Date().toISOString()
       };
       
-      await db.sales.put(updatedSale);
+      const engine = getDbEngine();
+      await engine.upsertSale(updatedSale);
       return updatedSale;
     } catch (error) {
       console.error("Error editing sale", error);
@@ -103,7 +108,8 @@ export const saleService = {
 
   async deleteSale(id: string): Promise<boolean> {
     try {
-      await db.sales.delete(id);
+      const engine = getDbEngine();
+      await engine.deleteSale(id);
       return true;
     } catch (error) {
       console.error("Error deleting sale", error);

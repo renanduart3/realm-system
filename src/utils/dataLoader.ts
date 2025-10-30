@@ -1,7 +1,7 @@
 //src/utils/dataLoader.ts
 import mockData from '../mocks/dataMock.json';
 import { appConfig } from '../config/app.config';
-import { db } from '../db/AppDatabase';
+import { getDbEngine } from '../db/engine';
 import { 
   SystemConfig,
   ProductService,
@@ -13,8 +13,8 @@ import {
   TransactionType,
   CachedSubscriptionStatus // Added
 } from '../model/types';
-import { GoogleSheetsSyncService } from '../services/googleSheets.service'; // Corrected path based on previous tasks
-import { INSIGHT_TYPES } from '../db/AppDatabase'; // Added
+import { GoogleSheetsSyncService } from '../services/googleSheets.service';
+import { INSIGHT_TYPES } from '../db/constants';
 
 const shouldUseMockData = () => {
   return appConfig.isDevelopment && appConfig.useMockData;
@@ -49,20 +49,20 @@ export const loadInitialData = async () => {
 
   try {
     // Verifica se já existem dados no banco
-    const existingConfig = await db.systemConfig.get('system-config');
+    const existingConfig = await getDbEngine().getSystemConfig('system-config');
     if (existingConfig) {
       console.log('Database already initialized');
       return;
     }
 
     // Carrega os dados mock sem deletar o banco
-    await db.systemConfig.put(convertMockData.systemConfig(mockData.systemConfig));
-    await db.products.bulkPut(mockData.products);
-    await db.income.bulkPut(convertMockData.income(mockData.income));
-    await db.donors.bulkPut(convertMockData.donors(mockData.donors));
-    await db.persons.bulkPut(mockData.persons);
-    await db.financialCategories.bulkPut(convertMockData.financialCategories(mockData.financialCategories));
-    await db.systemUsers.bulkPut(convertMockData.systemUsers(mockData.systemUsers));
+    await getDbEngine().putSystemConfig(convertMockData.systemConfig(mockData.systemConfig));
+    for (const p of mockData.products) await (getDbEngine() as any).upsertProduct?.(p);
+    for (const i of convertMockData.income(mockData.income)) await (getDbEngine() as any).upsertIncome?.(i);
+    for (const d of convertMockData.donors(mockData.donors)) await (getDbEngine() as any).upsertDonor?.(d);
+    for (const pe of mockData.persons) await (getDbEngine() as any).upsertPerson?.(pe);
+    for (const fc of convertMockData.financialCategories(mockData.financialCategories)) await (getDbEngine() as any).upsertFinancialCategory?.(fc);
+    for (const u of convertMockData.systemUsers(mockData.systemUsers)) await (getDbEngine() as any).upsertSystemUser?.(u);
 
     console.log('Mock data loaded successfully (core tables)');
 
@@ -80,7 +80,7 @@ export const loadInitialData = async () => {
       lastSync: new Date().toISOString(),
       userId: 'mockUser123' // Optional user ID
     };
-    await db.subscriptionStatus.put(mockPremiumStatus);
+    await (getDbEngine() as any).putSubscriptionStatus?.(mockPremiumStatus);
     console.log('Mock premium subscription status loaded.');
 
     // Sub-step 7.2: Mock Insights Data
@@ -93,7 +93,7 @@ export const loadInitialData = async () => {
 
     const storeInsight = async (type: string, data: any, year: number) => {
       if (data) {
-        await db.insights.put({
+        await (getDbEngine() as any).putInsight?.({
           id: `mock-${type.toLowerCase().replace(/_/g, '-')}-${year}`, // Ensure _ are replaced if type comes from INSIGHT_TYPES
           type: type as any, // Cast if necessary
           data: data,
@@ -129,7 +129,7 @@ export const getMockData = async <T>(tableName: string): Promise<T[]> => {
 
 export const getAllProducts = async (): Promise<ProductService[]> => {
   try {
-    const products = await db.products.toArray();
+    const products = await (getDbEngine() as any).listProducts?.() || [];
     return products.map(product => ({
       ...product,
       category: product.category || 'Geral',
@@ -140,3 +140,4 @@ export const getAllProducts = async (): Promise<ProductService[]> => {
     return [];
   }
 };
+

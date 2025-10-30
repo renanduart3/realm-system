@@ -1,4 +1,4 @@
-import { db } from '../../db/AppDatabase';
+import { getDbEngine } from '../../db/engine';
 import { RecurringExpense } from '../../model/types';
 import { recurringExpenseService } from '../../services/recurringExpenseService';
 import { financialCategoryService } from '../../services/financialCategoryService';
@@ -15,14 +15,14 @@ export async function migrateRecurringExpenses(): Promise<{
     console.log('🔄 Starting recurring expenses migration...');
 
     // Check if migration is needed
-    const existingRecurringExpenses = await db.recurringExpenses.count();
+    const existingRecurringExpenses = (await (getDbEngine() as any).listRecurringExpenses?.() || []).length;
     if (existingRecurringExpenses > 0) {
       console.log('✅ Recurring expenses already migrated');
       return { success: true, migrated: existingRecurringExpenses, errors: [] };
     }
 
     // Find all transactions marked as recurring
-    const recurringTransactions = await db.transactions
+    const recurringTransactions = await (getDbEngine() as any).listTransactions?.()
       .where('is_recurring').equals(true)
       .toArray();
 
@@ -67,7 +67,7 @@ export async function migrateRecurringExpenses(): Promise<{
           migrated++;
 
           // Link the original transaction to the recurring expense
-          await db.transactions.update(transaction.id, {
+          await (getDbEngine() as any).listTransactions?.().update(transaction.id, {
             recurring_expense_id: created.id
           });
 
@@ -75,7 +75,7 @@ export async function migrateRecurringExpenses(): Promise<{
         } else {
           // Link to existing recurring expense
           const existing = uniqueRecurringExpenses.get(key)!;
-          await db.transactions.update(transaction.id, {
+          await (getDbEngine() as any).listTransactions?.().update(transaction.id, {
             recurring_expense_id: existing.id
           });
         }
@@ -110,11 +110,11 @@ export async function checkMigrationStatus(): Promise<{
   recurringExpensesCount: number;
 }> {
   try {
-    const recurringTransactionsCount = await db.transactions
+    const recurringTransactionsCount = await (getDbEngine() as any).listTransactions?.()
       .where('is_recurring').equals(true)
       .count();
 
-    const recurringExpensesCount = await db.recurringExpenses.count();
+    const recurringExpensesCount = ((await (getDbEngine() as any).listRecurringExpenses?.()) || []).length;
 
     return {
       needsMigration: recurringTransactionsCount > 0 && recurringExpensesCount === 0,
@@ -141,12 +141,12 @@ export async function rollbackMigration(): Promise<{
     console.log('🔄 Rolling back recurring expenses migration...');
 
     // Remove recurring_expense_id from all transactions
-    await db.transactions.toCollection().modify(transaction => {
+    await (getDbEngine() as any).listTransactions?.().toCollection().modify(transaction => {
       delete transaction.recurring_expense_id;
     });
 
     // Clear recurring expenses table
-    await db.recurringExpenses.clear();
+    for (const re of (await (getDbEngine() as any).listRecurringExpenses?.()) || []) { await (getDbEngine() as any).deleteRecurringExpense?.(re.id); }
 
     console.log('✅ Migration rollback completed');
     return { success: true, errors: [] };
@@ -156,3 +156,5 @@ export async function rollbackMigration(): Promise<{
     return { success: false, errors: [errorMsg] };
   }
 }
+
+

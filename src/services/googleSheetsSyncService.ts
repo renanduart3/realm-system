@@ -1,5 +1,7 @@
-import { db, INSIGHT_TYPES } from '../db/AppDatabase';
+import { INSIGHT_TYPES } from '../db/constants';
+import { getDbEngine } from '../db/engine';
 import { appConfig } from '../config/app.config';
+import { systemConfigService } from './systemConfigService';
 import dataMock from '../mocks/dataMock.json';
 import { 
   Sale, 
@@ -57,7 +59,7 @@ export class GoogleSheetsSyncService {
       status: 'pending'
     };
 
-    await db.syncMetadata.put(metadata);
+    await (window as any).electronAPI?.putSyncMetadata?.(metadata);
     return metadata;
   }
 
@@ -66,7 +68,9 @@ export class GoogleSheetsSyncService {
       throw new Error('This is a premium feature. Please upgrade your subscription to use Google Sheets sync.');
     }
     try {
-      let metadata = await db.syncMetadata.get(`sync-${year}`);
+      const engine = getDbEngine();
+      // For simplicity, use insights list/sales/expenses from engine directly (syncMetadata remains Dexie-only; adjust if needed)
+      let metadata = await (window as any).electronAPI?.getSyncMetadata?.(`sync-${year}`);
       if (!metadata) {
         // If initializeYearSync is called from here, it also needs the isPremium flag.
         // However, the flow implies initializeYearSync would be called first independently.
@@ -75,20 +79,20 @@ export class GoogleSheetsSyncService {
         // If not, then: metadata = await this.initializeYearSync(year, isPremium);
         // For this iteration, let's assume initializeYearSync was called prior and metadata should exist or this is an error flow.
         // A simpler approach if it can be created here:
-        metadata = await db.syncMetadata.get(`sync-${year}`) || await this.initializeYearSync(year, isPremium);
+        metadata = (await (window as any).electronAPI?.getSyncMetadata?.(`sync-${year}`)) || await this.initializeYearSync(year, isPremium);
       }
 
-      await db.syncMetadata.update(metadata.id, { status: 'syncing' });
+      await (window as any).electronAPI?.updateSyncMetadata?.(metadata.id, { status: 'syncing' });
 
-      const config = await db.systemConfig.get('system-config') as SystemConfig;
+      const config = await systemConfigService.getConfig() as SystemConfig;
       const isProfit = config.organization_type === 'profit';
 
       // Busca dados do ano específico
-      const [sales, income, expenses] = await Promise.all([
-        isProfit ? db.sales.where('year').equals(year).toArray() : [],
-        db.income.where('year').equals(year).toArray(),
-        db.expenses.where('year').equals(year).toArray()
-      ]);
+      const allSales = await engine.listSales();
+      const allExpenses = await engine.listExpenses();
+      const sales = isProfit ? allSales.filter(s => new Date(s.date).getFullYear() === year) : [];
+      const income = (await (engine as any).listIncome?.())?.filter((i: any) => new Date(i.date).getFullYear() === year) || [];
+      const expenses = allExpenses.filter(e => new Date(e.date).getFullYear() === year);
 
       // Prepara dados para sincronização
       // Pass isPremium to generateInsights if its sub-methods are to be gated individually
@@ -101,28 +105,10 @@ export class GoogleSheetsSyncService {
       };
 
       // Salva na tabela de sync
-      await Promise.all([
-        isProfit && db.syncSales.put({
-          id: `${year}-sales`,
-          year,
-          date: new Date().toISOString(),
-          data: syncData.sales
-        }),
-        db.syncIncome.put({
-          id: `${year}-income`,
-          year,
-          date: new Date().toISOString(),
-          data: syncData.income
-        }),
-        db.syncExpenses.put({
-          id: `${year}-expenses`,
-          year,
-          date: new Date().toISOString(),
-          data: syncData.expenses
-        })
-      ]);
+      // Persist sync data through an Electron API or skip in web.
+      await (window as any).electronAPI?.putSyncData?.({ year, ...syncData });
 
-      await db.syncMetadata.update(metadata.id, {
+      await (window as any).electronAPI?.updateSyncMetadata?.(metadata.id, {
         lastSync: new Date().toISOString(),
         status: 'completed'
       });
@@ -130,7 +116,7 @@ export class GoogleSheetsSyncService {
       return true;
     } catch (error) {
       console.error('Erro na sincronização:', error);
-      await db.syncMetadata.update(`sync-${year}`, {
+      await (window as any).electronAPI?.updateSyncMetadata?.(`sync-${year}`, {
         status: 'error',
         error: error instanceof Error ? error.message : 'Erro desconhecido'
       });
@@ -144,7 +130,7 @@ export class GoogleSheetsSyncService {
       return false;
     }
     try {
-      const config = await db.systemConfig.get('system-config');
+      const config = await systemConfigService.getConfig();
       if (!config?.sheet_ids) return false;
 
       // Implementar lógica de backup para pasta "old"
@@ -158,7 +144,7 @@ export class GoogleSheetsSyncService {
   }
 
   private async generateInsights(year: number, isPremium: boolean) { // Added isPremium
-    const config = await db.systemConfig.get('system-config') as SystemConfig;
+    const config = await (await import('./systemConfigService')).systemConfigService.getConfig() as SystemConfig;
     const isProfit = config.organization_type === 'profit';
 
     // Pass isPremium to each BI method
@@ -179,16 +165,12 @@ export class GoogleSheetsSyncService {
     }
     try {
       // Get the latest demand prediction from IndexedDB
-      const insight = await db.insights
-        .where('type')
-        .equals(GoogleSheetsSyncService.INSIGHT_TYPES.DEMAND)
-        .reverse()
-        .first();
+      const insight = (await getDbEngine().listInsights()).filter(i => i.type === GoogleSheetsSyncService.INSIGHT_TYPES.DEMAND).sort((a:any,b:any)=>new Date(b.timestamp).getTime()-new Date(a.timestamp).getTime())[0];
 
       if (!insight || this.isInsightStale(insight.timestamp)) {
         // Calculate new prediction
-        const transactions = await db.transactions.toArray();
-        const products = await db.products.toArray();
+        const transactions = await getDbEngine().listTransactions();
+        const products = await getDbEngine().listProducts();
         
         // Perform demand prediction analysis
         const prediction = this.calculateDemandPrediction(transactions, products);
@@ -229,14 +211,10 @@ export class GoogleSheetsSyncService {
       return this.getDefaultCustomerSentiment();
     }
     try {
-      const insight = await db.insights
-        .where('type')
-        .equals(GoogleSheetsSyncService.INSIGHT_TYPES.SENTIMENT)
-        .reverse()
-        .first();
+      const insight = (await getDbEngine().listInsights()).filter(i => i.type === GoogleSheetsSyncService.INSIGHT_TYPES.DEMAND).sort((a:any,b:any)=>new Date(b.timestamp).getTime()-new Date(a.timestamp).getTime())[0];
 
       if (!insight || this.isInsightStale(insight.timestamp)) {
-        const transactions = await db.transactions.toArray();
+        const transactions = await getDbEngine().listTransactions();
         const sentiment = this.analyzeSentiment(transactions);
         
         return sentiment;
@@ -273,17 +251,10 @@ export class GoogleSheetsSyncService {
       return this.getDefaultExpenseAnalysis();
     }
     try {
-      const insight = await db.insights
-        .where('type')
-        .equals(GoogleSheetsSyncService.INSIGHT_TYPES.EXPENSE)
-        .reverse()
-        .first();
+      const insight = (await getDbEngine().listInsights()).filter(i => i.type === GoogleSheetsSyncService.INSIGHT_TYPES.DEMAND).sort((a:any,b:any)=>new Date(b.timestamp).getTime()-new Date(a.timestamp).getTime())[0];
 
       if (!insight || this.isInsightStale(insight.timestamp)) {
-        const transactions = await db.transactions
-          .where('type')
-          .equals('expense')
-          .toArray();
+        const transactions = await getDbEngine().listTransactions();
         
         const analysis = this.analyzeExpenses(transactions);
         
@@ -321,17 +292,13 @@ export class GoogleSheetsSyncService {
       return this.getDefaultSalesPerformance();
     }
     try {
-      const insight = await db.insights
-        .where('type')
-        .equals(GoogleSheetsSyncService.INSIGHT_TYPES.SALES)
-        .reverse()
-        .first();
+      const allSalesInsights = await getDbEngine().listInsights();
+      const insight = allSalesInsights
+        .filter(i => i.type === GoogleSheetsSyncService.INSIGHT_TYPES.SALES)
+        .sort((a,b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime())[0];
 
       if (!insight || this.isInsightStale(insight.timestamp)) {
-        const transactions = await db.transactions
-          .where('type')
-          .equals('income')
-          .toArray();
+        const transactions = await getDbEngine().listTransactions();
         
         const performance = this.analyzeSalesPerformance(transactions);
         
@@ -370,21 +337,20 @@ export class GoogleSheetsSyncService {
       return this.getDefaultFidelization();
     }
     try {
-      const insight = await db.insights
-        .where('type')
-        .equals(GoogleSheetsSyncService.INSIGHT_TYPES.FIDELIZATION)
-        .reverse()
-        .first();
+      const allFidInsights = await getDbEngine().listInsights();
+      const insight = allFidInsights
+        .filter(i => i.type === GoogleSheetsSyncService.INSIGHT_TYPES.FIDELIZATION)
+        .sort((a,b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime())[0];
 
       if (!insight || this.isInsightStale(insight.timestamp)) {
         const [transactions, people] = await Promise.all([
-          db.transactions.where('type').equals('income').toArray(),
-          db.persons.toArray()
+          getDbEngine().listTransactions(),
+          (getDbEngine() as any).listPersons?.() || []
         ]);
         
         const fidelization = this.analyzeFidelization(transactions, people);
         
-        await db.insights.add({
+        await getDbEngine().addInsight({
           id: `fidelization-${new Date().getTime()}`,
           type: GoogleSheetsSyncService.INSIGHT_TYPES.FIDELIZATION,
           data: fidelization,
@@ -458,7 +424,7 @@ export class GoogleSheetsSyncService {
 
       if (!mockSheet) return false;
 
-      await db.syncMetadata.put({
+      await (window as any).electronAPI?.putSyncMetadata?.({
         id: `sync-${year}`,
         year,
         sheetId: mockSheet.id,
@@ -473,3 +439,6 @@ export class GoogleSheetsSyncService {
     }
   }
 }
+
+
+

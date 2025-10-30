@@ -1,67 +1,106 @@
 {
-  "name": "vite-react-typescript-starter",
-  "private": true,
-  "version": "0.0.0",
-  "type": "module",
-  "scripts": {
-    "dev": "vite",
-    "build": "vite build",
-    "lint": "eslint .",
-    "preview": "vite preview",
-    "test": "vitest",
-    "test:ui": "vitest --ui"
-  },
-  "dependencies": {
-    "@radix-ui/react-dialog": "^1.1.5",
-    "@radix-ui/react-slot": "^1.1.1",
-    "@stripe/react-stripe-js": "^3.1.1",
-    "@stripe/stripe-js": "^5.6.0",
-    "@supabase/supabase-js": "^2.49.8",
-    "@tensorflow/tfjs": "^4.22.0",
-    "axios": "^1.7.9",
-    "chart.js": "^4.4.7",
-    "class-variance-authority": "^0.7.1",
-    "clsx": "^2.1.1",
-    "dexie": "^4.0.11",
-    "gapi-script": "^1.2.0",
-    "lucide-react": "^0.344.0",
-    "mercadopago": "^2.3.0",
-    "react": "^18.3.1",
-    "react-chartjs-2": "^5.3.0",
-    "react-dom": "^18.3.1",
-    "react-modal": "^3.16.3",
-    "react-router-dom": "^6.22.3",
-    "react-toastify": "^11.0.3",
-    "recharts": "^2.15.1",
-    "shadcn-ui": "^0.9.4",
-    "supabase": "^2.23.4",
-    "tailwind-merge": "^2.6.0",
-    "uuid": "^11.0.5",
-    "vite-plugin-pwa": "^0.19.2"
-  },
-  "devDependencies": {
-    "@eslint/js": "^9.9.1",
-    "@tailwindcss/forms": "^0.5.10",
-    "@testing-library/jest-dom": "^6.9.1",
-    "@testing-library/react": "^16.3.0",
-    "@testing-library/user-event": "^14.6.1",
-    "@types/react": "^18.3.5",
-    "@types/react-dom": "^18.3.0",
-    "@types/react-modal": "^3.16.3",
-    "@types/uuid": "^10.0.0",
-    "@vitejs/plugin-react": "^4.3.1",
-    "@vitest/ui": "^3.2.4",
-    "autoprefixer": "^10.4.18",
-    "eslint": "^9.9.1",
-    "eslint-plugin-react-hooks": "^5.1.0-rc.0",
-    "eslint-plugin-react-refresh": "^0.4.11",
-    "globals": "^15.9.0",
-    "jsdom": "^27.0.0",
-    "postcss": "^8.4.35",
-    "tailwindcss": "^3.4.1",
-    "typescript": "^5.5.3",
-    "typescript-eslint": "^8.3.0",
-    "vite": "^5.4.2",
-    "vitest": "^3.2.4"
-  }
+    "name": "vite-react-typescript-starter",
+    "private": true,
+    "version": "0.0.0",
+    "type": "module",
+    "scripts": {
+        "dev": "vite",
+        "build": "vite build",
+        "lint": "eslint .",
+        "preview": "vite preview",
+        "test": "vitest",
+        "test:ui": "vitest --ui",
+        "build:electron": "tsc -p tsconfig.electron.json && node -e \"require('fs').writeFileSync('dist-electron/package.json','{\\\"type\\\":\\\"commonjs\\\"}')\"",
+        "start:electron": "electron dist-electron/main.js",
+        "dev:electron": "cross-env VITE_DEV_SERVER_URL=http://localhost:5173 npm run build:electron && electron dist-electron/main.js",
+        "pack:electron": "npm run build && npm run build:electron && electron-builder"
+    },
+    "dependencies": {
+        "@radix-ui/react-dialog": "^1.1.5",
+        "@radix-ui/react-slot": "^1.1.1",
+        "@stripe/react-stripe-js": "^3.1.1",
+        "@stripe/stripe-js": "^5.6.0",
+        "@supabase/supabase-js": "^2.49.8",
+        "@tensorflow/tfjs": "^4.22.0",
+        "axios": "^1.7.9",
+        "better-sqlite3": "^12.4.1",
+        "chart.js": "^4.4.7",
+        "class-variance-authority": "^0.7.1",
+        "clsx": "^2.1.1",
+        "dexie": "^4.0.11",
+        "electron-updater": "^6.6.2",
+        "gapi-script": "^1.2.0",
+        "lucide-react": "^0.344.0",
+        "mercadopago": "^2.3.0",
+        "react": "^18.3.1",
+        "react-chartjs-2": "^5.3.0",
+        "react-dom": "^18.3.1",
+        "react-modal": "^3.16.3",
+        "react-router-dom": "^6.22.3",
+        "react-toastify": "^11.0.3",
+        "recharts": "^2.15.1",
+        "shadcn-ui": "^0.9.4",
+        "supabase": "^2.23.4",
+        "tailwind-merge": "^2.6.0",
+        "uuid": "^11.0.5",
+        "vite-plugin-pwa": "^0.19.2"
+    },
+    "devDependencies": {
+        "@eslint/js": "^9.9.1",
+        "@tailwindcss/forms": "^0.5.10",
+        "@testing-library/jest-dom": "^6.9.1",
+        "@testing-library/react": "^16.3.0",
+        "@testing-library/user-event": "^14.6.1",
+        "@types/react": "^18.3.5",
+        "@types/react-dom": "^18.3.0",
+        "@types/react-modal": "^3.16.3",
+        "@types/uuid": "^10.0.0",
+        "@vitejs/plugin-react": "^4.3.1",
+        "@vitest/ui": "^3.2.4",
+        "autoprefixer": "^10.4.18",
+        "cross-env": "^10.1.0",
+        "electron": "^38.3.0",
+        "electron-builder": "^26.0.12",
+        "eslint": "^9.9.1",
+        "eslint-plugin-react-hooks": "^5.1.0-rc.0",
+        "eslint-plugin-react-refresh": "^0.4.11",
+        "globals": "^15.9.0",
+        "jsdom": "^27.0.0",
+        "postcss": "^8.4.35",
+        "tailwindcss": "^3.4.1",
+        "typescript": "^5.5.3",
+        "typescript-eslint": "^8.3.0",
+        "vite": "^5.4.2",
+        "vitest": "^3.2.4",
+        "wait-on": "^9.0.1"
+    },
+    "build": {
+        "directories": {
+            "output": "release"
+        },
+        "files": [
+            "dist/**",
+            "dist-electron/**",
+            "package.json"
+        ],
+        "mac": {
+            "target": [
+                "dmg"
+            ],
+            "category": "public.app-category.business"
+        },
+        "win": {
+            "target": [
+                "nsis"
+            ]
+        },
+        "appId": "com.realm.system",
+        "linux": {
+            "target": [
+                "AppImage"
+            ],
+            "category": "Office"
+        }
+    }
 }
+

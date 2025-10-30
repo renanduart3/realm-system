@@ -1,4 +1,4 @@
-import { db } from '../db/AppDatabase';
+import { getDbEngine } from '../db/engine';
 import { Person } from '../model/types';
 import { v4 as uuidv4 } from 'uuid';
 
@@ -32,7 +32,7 @@ export const personService = {
         updated_at: new Date().toISOString()
       };
 
-      await db.persons.add(newPerson);
+      await getDbEngine().upsertPerson(newPerson);
       return newPerson;
     } catch (error) {
       console.error("Error creating new person", error);
@@ -42,7 +42,7 @@ export const personService = {
 
   async getPersonById(id: string): Promise<Person | null> {
     try {
-      const person = await db.persons.get(id);
+      const person = await getDbEngine().getPersonById(id);
       return person || null;
     } catch (error) {
       console.error("Error getting person", error);
@@ -52,7 +52,7 @@ export const personService = {
 
   async getAllPersons(): Promise<Person[]> {
     try {
-      const persons = await db.persons.toArray();
+      const persons = await getDbEngine().listPersons();
       return persons;
     } catch (error) {
       console.error("Error getting all persons", error);
@@ -67,7 +67,7 @@ export const personService = {
         updated_at: new Date().toISOString()
       };
       
-      await db.persons.put(updatedPerson);
+      await getDbEngine().upsertPerson(updatedPerson);
       return updatedPerson;
     } catch (error) {
       console.error("Error editing person", error);
@@ -77,7 +77,7 @@ export const personService = {
 
   async deletePerson(id: string): Promise<boolean> {
     try {
-      await db.persons.delete(id);
+      await getDbEngine().deletePerson(id);
       return true;
     } catch (error) {
       console.error("Error deleting person", error);

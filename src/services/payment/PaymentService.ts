@@ -61,7 +61,7 @@ export class PaymentService {
 
   private async getCachedStatus(): Promise<CachedSubscriptionStatus | null> {
     try {
-      const status = await db.subscriptionStatus.get('currentUser');
+      const status = await (getDbEngine() as any).getSubscriptionStatus?.('currentUser');
       return status || null;
     } catch {
       return null; // Or handle error more specifically
@@ -78,7 +78,7 @@ export class PaymentService {
         lastSync: new Date().toISOString(),
         ...status, // Spread the provided status, potentially overwriting defaults if present
       };
-      await db.subscriptionStatus.put(currentStatusToSave);
+      await (getDbEngine() as any).putSubscriptionStatus?.(currentStatusToSave);
     } catch (error) {
       console.error('Error caching subscription status:', error);
     }
@@ -227,3 +227,4 @@ export class PaymentService {
     }
   }
 } 
+

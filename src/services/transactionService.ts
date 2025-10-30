@@ -1,4 +1,4 @@
-import { db } from '../db/AppDatabase';
+import { getDbEngine } from '../db/engine';
 import { Transaction, ExpenseCategory } from '../model/types';
 import { v4 as uuidv4 } from 'uuid';
 
@@ -35,7 +35,8 @@ export const transactionService = {
         updated_at: new Date().toISOString()
       };
 
-      await db.transactions.add(newTransaction);
+      const engine = getDbEngine();
+      await engine.upsertTransaction(newTransaction);
       return newTransaction;
     } catch (error) {
       console.error("Error creating new transaction", error);
@@ -52,7 +53,8 @@ export const transactionService = {
   ): Promise<Transaction | null> {
     try {
       // Get recurring expense details
-      const recurringExpense = await db.recurringExpenses.get(recurringExpenseId);
+      const engine = getDbEngine();
+      const recurringExpense = await engine.getRecurringExpenseById(recurringExpenseId);
       if (!recurringExpense) {
         throw new Error('Recurring expense not found');
       }
@@ -75,9 +77,7 @@ export const transactionService = {
       );
 
       if (transaction && interest) {
-        await db.transactions.update(transaction.id, {
-          interest_amount: interest
-        });
+        await engine.updateTransactionFields(transaction.id, { interest_amount: interest });
       }
 
       return transaction;
@@ -113,7 +113,8 @@ export const transactionService = {
         updated_at: new Date().toISOString()
       };
 
-      await db.transactions.add(paymentTransaction);
+      const engine = getDbEngine();
+      await engine.upsertTransaction(paymentTransaction);
 
       // Update original transaction status if fully paid
       const relatedPayments = await this.getRelatedPayments(originalTransactionId);
@@ -132,7 +133,7 @@ export const transactionService = {
 
   async getTransactionById(id: string): Promise<Transaction | null> {
     try {
-      const transaction = await db.transactions.get(id);
+      const transaction = await getDbEngine().getTransactionById(id);
       return transaction || null;
     } catch (error) {
       console.error("Error getting transaction", error);
@@ -142,7 +143,7 @@ export const transactionService = {
 
   async getAllTransactions(): Promise<Transaction[]> {
     try {
-      const transactions = await db.transactions.toArray();
+      const transactions = await getDbEngine().listTransactions();
       return transactions;
     } catch (error) {
       console.error("Error getting all transactions", error);
@@ -156,7 +157,8 @@ export const transactionService = {
       const endDate = new Date(year, month, 0).toISOString().split('T')[0];
 
       // Get all transactions
-      const allTransactions = await db.transactions.toArray();
+      const engine = getDbEngine();
+      const allTransactions = await engine.listTransactions();
       
       // Filter transactions for the specified month
       const transactions = allTransactions.filter(transaction => {
@@ -210,10 +212,7 @@ export const transactionService = {
 
   async getTransactionsByCategory(category: ExpenseCategory): Promise<Transaction[]> {
     try {
-      const transactions = await db.transactions
-        .where('category')
-        .equals(category)
-        .toArray();
+      const transactions = (await getDbEngine().listTransactions()).filter(t => t.category === category);
 
       return transactions;
     } catch (error) {
@@ -224,10 +223,9 @@ export const transactionService = {
 
   async getRelatedPayments(originalTransactionId: string): Promise<Transaction[]> {
     try {
-      const payments = await db.transactions
-        .where('related_transaction_id')
-        .equals(originalTransactionId)
-        .toArray();
+      const engine = getDbEngine();
+      const paymentsAll = await engine.listTransactions();
+      const payments = paymentsAll.filter(p => p.related_transaction_id === originalTransactionId);
 
       return payments;
     } catch (error) {
@@ -249,7 +247,8 @@ export const transactionService = {
         updated_at: new Date().toISOString()
       };
 
-      await db.transactions.put(updatedTransaction);
+      const engine = getDbEngine();
+      await engine.upsertTransaction(updatedTransaction);
       return true;
     } catch (error) {
       console.error("Error updating transaction status", error);
@@ -270,7 +269,8 @@ export const transactionService = {
         updated_at: new Date().toISOString()
       };
 
-      await db.transactions.put(updatedTransaction);
+      const engine = getDbEngine();
+      await engine.upsertTransaction(updatedTransaction);
       return true;
     } catch (error) {
       console.error("Error dismissing notification", error);
@@ -284,7 +284,8 @@ export const transactionService = {
       const fourDaysFromNow = new Date(now);
       fourDaysFromNow.setDate(now.getDate() + 4);
 
-      const transactions = await db.transactions.toArray();
+      const engine = getDbEngine();
+      const transactions = await engine.listTransactions();
       
       return transactions.filter(transaction => {
         // Skip if already paid, cancelled, or notification dismissed
@@ -322,7 +323,8 @@ export const transactionService = {
         updated_at: new Date().toISOString()
       };
       
-      await db.transactions.put(updatedTransaction);
+      const engine = getDbEngine();
+      await engine.upsertTransaction(updatedTransaction);
       return updatedTransaction;
     } catch (error) {
       console.error("Error editing transaction", error);
@@ -332,7 +334,8 @@ export const transactionService = {
 
   async deleteTransaction(id: string): Promise<boolean> {
     try {
-      await db.transactions.delete(id);
+      const engine = getDbEngine();
+      await engine.deleteTransaction(id);
       return true;
     } catch (error) {
       console.error("Error deleting transaction", error);
@@ -340,3 +343,7 @@ export const transactionService = {
     }
   }
 };
+
+
+
+

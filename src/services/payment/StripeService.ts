@@ -39,7 +39,8 @@ class StripeService {
         body: {
           action: 'create-checkout-session',
           priceId: options.priceId,
-          email: options.email
+          email: options.email,
+          siteUrl: window.location.origin
         },
         headers: {
           Authorization: `Bearer ${session.access_token}`
@@ -47,10 +48,14 @@ class StripeService {
       });
 
       if (error) {
-        throw new Error(error.message || 'Erro ao criar sessão de checkout');
+        // Expor o erro detalhado retornado pela Edge Function (se houver)
+        const messageFromFunction = (data as any)?.error || (error as any)?.message;
+        console.error('Supabase Function error (realm-stripe-function):', { error, data });
+        throw new Error(messageFromFunction || 'Erro ao criar sessão de checkout');
       }
 
       if (!data?.url) {
+        console.error('Resposta inválida da função: URL não presente', { data });
         throw new Error('URL de checkout não retornada pelo servidor');
       }
       

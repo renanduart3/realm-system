@@ -63,3 +63,36 @@ CREATE TABLE public.invitation_codes (
     created_at timestamptz DEFAULT now()
 );
 
+-- Table for lifetime license redemption codes
+CREATE TABLE IF NOT EXISTS public.codigos_resgate (
+    id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+    codigo text NOT NULL UNIQUE,
+    usado boolean NOT NULL DEFAULT false,
+    usado_por uuid NULL REFERENCES auth.users(id) ON DELETE SET NULL,
+    created_at timestamptz DEFAULT now(),
+    used_at timestamptz
+);
+
+-- Indexes for redeem codes
+CREATE INDEX IF NOT EXISTS idx_codigos_resgate_usado ON public.codigos_resgate(usado);
+CREATE INDEX IF NOT EXISTS idx_codigos_resgate_usado_por ON public.codigos_resgate(usado_por);
+
+-- Trigger to set used_at when code becomes used
+CREATE OR REPLACE FUNCTION public.set_used_at()
+RETURNS TRIGGER AS $$
+BEGIN
+  IF NEW.usado = true AND (OLD.usado IS DISTINCT FROM NEW.usado) THEN
+    NEW.used_at = NOW();
+  END IF;
+  RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
+
+DROP TRIGGER IF EXISTS trg_set_used_at ON public.codigos_resgate;
+CREATE TRIGGER trg_set_used_at
+BEFORE UPDATE ON public.codigos_resgate
+FOR EACH ROW
+EXECUTE PROCEDURE public.set_used_at();
+
+-- Enable RLS (Edge Functions with service role bypass RLS)
+ALTER TABLE public.codigos_resgate ENABLE ROW LEVEL SECURITY;

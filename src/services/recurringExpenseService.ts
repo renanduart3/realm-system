@@ -1,4 +1,4 @@
-import { db } from '../db/AppDatabase';
+import { getDbEngine } from '../db/engine';
 import { RecurringExpense, VirtualExpense, SpecificExpenseCategory } from '../model/types';
 import { v4 as uuidv4 } from 'uuid';
 
@@ -12,7 +12,8 @@ export const recurringExpenseService = {
         updated_at: new Date().toISOString()
       };
 
-      await db.recurringExpenses.add(recurringExpense);
+      const engine = getDbEngine();
+      await engine.upsertRecurringExpense(recurringExpense);
       return recurringExpense;
     } catch (error) {
       console.error('Error creating recurring expense:', error);
@@ -23,9 +24,9 @@ export const recurringExpenseService = {
   async getAll(activeOnly = true): Promise<RecurringExpense[]> {
     try {
       if (activeOnly) {
-        return await db.recurringExpenses.where('active').equals(true).toArray();
+        const engine = getDbEngine(); return (await engine.listRecurringExpenses()).filter(e => e.active === true);
       }
-      return await db.recurringExpenses.toArray();
+      const engine = getDbEngine(); return engine.listRecurringExpenses();
     } catch (error) {
       console.error('Error getting recurring expenses:', error);
       return [];
@@ -34,7 +35,7 @@ export const recurringExpenseService = {
 
   async getById(id: string): Promise<RecurringExpense | null> {
     try {
-      return await db.recurringExpenses.get(id) || null;
+      const engine = getDbEngine(); return await engine.getRecurringExpenseById(id) || null;
     } catch (error) {
       console.error('Error getting recurring expense by id:', error);
       return null;
@@ -48,7 +49,7 @@ export const recurringExpenseService = {
         updated_at: new Date().toISOString()
       };
       
-      await db.recurringExpenses.update(id, updateData);
+      const engine = getDbEngine(); const current = await engine.getRecurringExpenseById(id); await engine.upsertRecurringExpense({ ...(current||{id}), ...updateData });
       return true;
     } catch (error) {
       console.error('Error updating recurring expense:', error);
@@ -58,7 +59,7 @@ export const recurringExpenseService = {
 
   async delete(id: string): Promise<boolean> {
     try {
-      await db.recurringExpenses.delete(id);
+      const engine = getDbEngine(); await engine.deleteRecurringExpense(id);
       return true;
     } catch (error) {
       console.error('Error deleting recurring expense:', error);
@@ -76,13 +77,7 @@ export const recurringExpenseService = {
         const dueDate = new Date(year, month - 1, recurring.dayOfMonthDue);
         
         // Check if this expense was already paid this month
-        const existingTransaction = await db.transactions
-          .where('recurring_expense_id').equals(recurring.id)
-          .and(transaction => {
-            const transDate = new Date(transaction.date);
-            return transDate.getMonth() === month - 1 && transDate.getFullYear() === year;
-          })
-          .first();
+        const engine = getDbEngine(); const allTx = await engine.listTransactions(); const existingTransaction = allTx.find(transaction => transaction.recurring_expense_id === recurring.id && (()=>{ const transDate = new Date(transaction.date); return transDate.getMonth() === month - 1 && transDate.getFullYear() === year;})());
 
         const virtualExpense: VirtualExpense = {
           id: `${recurring.id}-${year}-${month}`,
@@ -109,10 +104,7 @@ export const recurringExpenseService = {
 
   async getExpensesByCategory(category: SpecificExpenseCategory): Promise<RecurringExpense[]> {
     try {
-      return await db.recurringExpenses
-        .where('category').equals(category)
-        .and(expense => expense.active)
-        .toArray();
+      const engine = getDbEngine(); return (await engine.listRecurringExpenses()).filter((e:any)=> e.category===category && e.active);
     } catch (error) {
       console.error('Error getting expenses by category:', error);
       return [];
@@ -131,3 +123,6 @@ export const recurringExpenseService = {
     }
   }
 };
+
+
+

@@ -1,10 +1,10 @@
-import { db } from '../../db/AppDatabase';
+import { getDbEngine } from '../../db/engine';
 import { ReportGenerator } from '../types';
 
 // Nota: Atualmente, o modelo não armazena método de pagamento em vendas.
 // Usamos Income.payment_method quando disponível como proxy simples.
 export const generatePaymentMethodsReport: ReportGenerator = async () => {
-  const incomes = await db.income.toArray();
+  const incomes = await (getDbEngine() as any).listIncome?.() || [];
 
   const map = new Map<string, { method: string; count: number; amount: number }>();
 
@@ -40,4 +40,3 @@ export const generatePaymentMethodsReport: ReportGenerator = async () => {
     summary: { totalAmount: Number((total === 1 && rows.length === 0 ? 0 : total).toFixed(2)) },
   };
 };
-
