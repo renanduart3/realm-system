@@ -207,6 +207,88 @@ serve(async (req)=>{
         status: 200
       });
     }
+    if (action === 'cancel-subscription') {
+      const { data: subscriptionRecord, error: subscriptionError } = await supabaseAdmin
+        .from('user_subscriptions')
+        .select('stripe_subscription_id')
+        .eq('user_id', user.id)
+        .single();
+
+      if (subscriptionError) {
+        console.error('Error fetching subscription for cancellation:', subscriptionError);
+        return new Response(JSON.stringify({
+          error: 'Erro ao recuperar assinatura para cancelamento'
+        }), {
+          headers: {
+            ...corsHeaders,
+            'Content-Type': 'application/json'
+          },
+          status: 500
+        });
+      }
+
+      if (!subscriptionRecord?.stripe_subscription_id) {
+        return new Response(JSON.stringify({
+          error: 'Assinatura não encontrada para o usuário'
+        }), {
+          headers: {
+            ...corsHeaders,
+            'Content-Type': 'application/json'
+          },
+          status: 404
+        });
+      }
+
+      const stripeSubscriptionId = subscriptionRecord.stripe_subscription_id;
+
+      const canceledSubscription = await stripe.subscriptions.cancel(stripeSubscriptionId);
+
+      const updatedSubscriptionData = {
+        status: canceledSubscription.status,
+        cancel_at_period_end: canceledSubscription.cancel_at_period_end,
+        current_period_start: canceledSubscription.current_period_start
+          ? new Date(canceledSubscription.current_period_start * 1000).toISOString()
+          : null,
+        current_period_end: canceledSubscription.current_period_end
+          ? new Date(canceledSubscription.current_period_end * 1000).toISOString()
+          : null,
+        updated_at: new Date().toISOString()
+      };
+
+      const { error: updateError } = await supabaseAdmin
+        .from('user_subscriptions')
+        .update(updatedSubscriptionData)
+        .eq('user_id', user.id);
+
+      if (updateError) {
+        console.error('Error updating subscription after cancellation:', updateError);
+        return new Response(JSON.stringify({
+          error: 'Erro ao atualizar assinatura cancelada'
+        }), {
+          headers: {
+            ...corsHeaders,
+            'Content-Type': 'application/json'
+          },
+          status: 500
+        });
+      }
+
+      await supabaseAdmin.auth.admin.updateUserById(user.id, {
+        user_metadata: {
+          premium_status: canceledSubscription.status
+        }
+      });
+
+      return new Response(JSON.stringify({
+        success: true
+      }), {
+        headers: {
+          ...corsHeaders,
+          'Content-Type': 'application/json'
+        },
+        status: 200
+      });
+    }
     // Unknown action
     return new Response(JSON.stringify({
       error: `Ação não suportada: ${action}`
