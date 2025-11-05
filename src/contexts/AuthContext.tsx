@@ -107,41 +107,42 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 
         if (event === 'SIGNED_IN' && session?.user) {
           try {
-            const { data: existingMetadata, error: fetchError } = await supabaseService
-              .from('users_metadata')
+            const { data: existingProfile, error: fetchError } = await supabaseService
+              .from('profiles')
               .select('id')
               .eq('id', session.user.id)
               .maybeSingle();
 
             if (fetchError) {
-              console.error('Error fetching user metadata:', fetchError);
-            } else if (!existingMetadata) {
-              console.log('No existing metadata found for user, creating new record...');
+              console.error('Error fetching user profile:', fetchError);
+            } else if (!existingProfile) {
+              console.log('No existing profile found for user, creating new record...');
               const isGoogle = session.user.app_metadata.provider === 'google';
               const name = isGoogle
                 ? session.user.user_metadata.full_name || session.user.user_metadata.name
                 : session.user.email; // Default to email if not Google and name not available
 
               const { error: insertError } = await supabaseService
-                .from('users_metadata')
+                .from('profiles')
                 .insert({
                   id: session.user.id,
                   email: session.user.email,
-                  name: name, // Use determined name
-                  google_user: isGoogle,
+                  username: name, // Use determined name
+                  nature_type: 'profit',
                 });
 
               if (insertError) {
-                console.error('Error inserting user metadata:', insertError);
+                console.error('Error inserting user profile:', insertError);
               } else {
-                console.log('User metadata created successfully for', session.user.email, '. Now creating default free subscription.');
-                
+                console.log('User profile created successfully for', session.user.email, '. Now creating default free subscription.');
+
                 const { error: subInsertError } = await supabaseService
-                  .from('subscriptions')
+                  .from('user_subscriptions')
                   .insert({
                     user_id: session.user.id,
                     status: 'active',
-                    plan_name: 'free',
+                    plan: 'free',
+                    interval: null,
                   });
 
                 if (subInsertError) {
@@ -154,14 +155,14 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
                   setPromptPlanSelection(false); // User gets a free active plan
                 }
               }
-            } else { // User metadata already exists
-              console.log('User metadata already exists for', session.user.email);
+            } else { // User profile already exists
+              console.log('User profile already exists for', session.user.email);
             }
           } catch (e) {
-            console.error('Exception during metadata check/creation:', e);
+            console.error('Exception during profile check/creation:', e);
             setSubscriptionStatus(null);
             setPlanName(null);
-            console.log('❌ Setting isPremium to false - exception during metadata check');
+            console.log('❌ Setting isPremium to false - exception during profile check');
             setIsPremium(false);
             setPromptPlanSelection(false);
           }
@@ -169,8 +170,8 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
           try {
             console.log('Fetching subscription for user:', session.user.id);
             const { data: sub, error: subError } = await supabaseService
-              .from('subscriptions')
-              .select('status, plan_name')
+              .from('user_subscriptions')
+              .select('status, plan')
               .eq('user_id', session.user.id)
               .maybeSingle();
 
@@ -185,8 +186,8 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
             } else if (sub) {
               console.log('Subscription data found:', sub);
               setSubscriptionStatus(sub.status);
-              setPlanName(sub.plan_name);
-              const isActivePremium = sub.status === 'active' && sub.plan_name === 'premium';
+              setPlanName(sub.plan ?? null);
+              const isActivePremium = sub.status === 'active' && sub.plan === 'premium';
               
               if (isActivePremium) {
                 try {
@@ -225,9 +226,9 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
               
               setPromptPlanSelection(sub.status === 'inactive'); // Prompt if inactive
             } else {
-              console.log('No subscription record found for user (after metadata check). This might indicate an issue if user is new.');
+              console.log('No subscription record found for user (after profile check). This might indicate an issue if user is new.');
               setSubscriptionStatus('inactive'); 
-              setPlanName('free'); 
+              setPlanName('free');
               console.log('❌ Setting isPremium to false - no subscription found');
               setIsPremium(false);
               setIsLifetime(false);
@@ -356,8 +357,8 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     try {
       console.log('Refreshing subscription for user:', session.user.id);
       const { data: sub, error: subError } = await supabaseService
-        .from('subscriptions')
-        .select('status, plan_name')
+        .from('user_subscriptions')
+        .select('status, plan')
         .eq('user_id', session.user.id)
         .maybeSingle();
 
@@ -366,8 +367,8 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       } else if (sub) {
         console.log('Refreshed subscription data found:', sub);
         setSubscriptionStatus(sub.status);
-        setPlanName(sub.plan_name);
-        const isActivePremium = sub.status === 'active' && sub.plan_name === 'premium';
+        setPlanName(sub.plan ?? null);
+        const isActivePremium = sub.status === 'active' && sub.plan === 'premium';
         setIsPremium(isActivePremium);
         setIsLifetime(false);
       } else {
