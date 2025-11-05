@@ -31,13 +31,19 @@ export default function SubscriptionStatus() {
       return;
     }
 
+    const priceId =
+      interval === 'month'
+        ? planDetails.price.monthlyPriceId
+        : planDetails.price.annualPriceId;
+
+    if (!priceId) {
+      console.error('Price ID não configurado para o intervalo selecionado:', interval);
+      showToast('Configuração de pagamento inválida. Tente novamente mais tarde.', 'error');
+      return;
+    }
+
     try {
-      const stripeSession = await stripeService.createSubscription({
-        planId: 'premium',
-        interval,
-        email: user.email,
-        paymentMethod: 'card',
-      });
+      const stripeSession = await stripeService.createSubscription({ priceId, email: user.email });
 
       if (stripeSession?.url) {
         window.location.href = stripeSession.url;

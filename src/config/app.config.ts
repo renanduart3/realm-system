@@ -5,6 +5,8 @@ interface SubscriptionPlan {
   price: {
     monthly: number;
     annual: number;
+    monthlyPriceId: string;
+    annualPriceId: string;
   };
   features: string[];
   earlyBirdDiscount?: {
