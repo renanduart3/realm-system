@@ -10,7 +10,7 @@
         "preview": "vite preview",
         "test": "vitest",
         "test:ui": "vitest --ui",
-        "build:electron": "tsc -p tsconfig.electron.json && node -e \"require('fs').writeFileSync('dist-electron/package.json','{\\\"type\\\":\\\"commonjs\\\"}')\"",
+        "build:electron": "tsc -p tsconfig.electron.json && node -e \"require('fs').writeFileSync('dist-electron/package.json', JSON.stringify({ main: 'main.js', type: 'commonjs' }, null, 4) + '\\\\n')\"",
         "start:electron": "electron dist-electron/main.js",
         "dev:electron": "cross-env VITE_DEV_SERVER_URL=http://localhost:5173 npm run build:electron && electron dist-electron/main.js",
         "pack:electron": "npm run build && npm run build:electron && electron-builder"
@@ -101,6 +101,6 @@
             ],
             "category": "Office"
         }
-    }
+    },
+    "main": "dist-electron/main.js"
 }
-
